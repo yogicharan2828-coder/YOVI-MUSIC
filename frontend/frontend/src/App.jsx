@@ -16,8 +16,8 @@ import Hero from "./components/home/Hero";
 import MusicSection from "./components/home/MusicSection";
 import SpotlightCard from "./components/home/SpotlightCard";
 
-import MusicPlayer from "./components/player/MusicPlayer";
-import YouTubePlayer from "./components/player/YouTubePlayer";
+import MusicPlayer from "./components/player/Musicplayer";
+import YouTubePlayer from "./components/player/Youtubeplayer";
 
 import Search from "./pages/Search";
 import Collections from "./pages/Collections";
