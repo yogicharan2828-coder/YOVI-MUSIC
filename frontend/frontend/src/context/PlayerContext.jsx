@@ -2745,20 +2745,35 @@ cover_url:
   const unlockJamPlayback =
     useCallback(() => {
 
+      /*
+       * This function is called directly by the guest's
+       * JOIN button. It records the user's explicit intent
+       * to hear Jam audio.
+       */
       jamAudioUnlockedRef.current = true;
 
       const activePlayer = playerRef.current;
 
       if (!activePlayer) {
-        return false;
+        return true;
       }
 
       try {
-        activePlayer.unMute();
-        activePlayer.setVolume(volumeRef.current);
+        /*
+         * If a Jam video is already loaded, make the user
+         * interaction immediately useful. If it is not loaded
+         * yet, the later Jam synchronization starts it muted
+         * and handlePlayerPlay restores audio.
+         */
+        const state =
+          activePlayer.getPlayerState?.() ?? -1;
 
-        if (jamStateRef.current?.isPlaying) {
-          activePlayer.playVideo();
+        if (
+          jamStateRef.current?.isPlaying &&
+          (state === 1 || state === 3)
+        ) {
+          activePlayer.unMute();
+          activePlayer.setVolume(volumeRef.current);
         }
 
         return true;
@@ -2971,11 +2986,19 @@ cover_url:
         true;
 
 
-      if (
-        !isHost &&
-        !jamAudioUnlockedRef.current
-      ) {
+      /*
+       * Guests must start Jam playback muted.
+       * Mobile browsers commonly reject an audible
+       * autoplay request that originates from a WebSocket
+       * event. Muted playback is allowed much more broadly.
+       *
+       * If the guest has already interacted with the JOIN
+       * control, handlePlayerPlay() will restore the volume
+       * after YouTube confirms that playback actually began.
+       */
+      if (!isHost) {
         player.mute();
+        player.setVolume(0);
       } else {
         player.unMute();
         player.setVolume(volumeRef.current);
@@ -3188,11 +3211,15 @@ cover_url:
           false;
 
 
-        if (
-          !isHost &&
-          !jamAudioUnlockedRef.current
-        ) {
+        /*
+         * A guest always starts the synchronized video
+         * muted. This is intentional: the PLAY command is
+         * generated remotely and therefore cannot reliably
+         * satisfy mobile autoplay-with-audio policies.
+         */
+        if (!isHost) {
           player.mute();
+          player.setVolume(0);
         } else {
           player.unMute();
           player.setVolume(volumeRef.current);
@@ -3207,21 +3234,51 @@ cover_url:
             clearTimeout(jamPlayRetryTimerRef.current);
           }
 
-          jamPlayRetryTimerRef.current =
-            setTimeout(() => {
-              try {
-                const retryState = player.getPlayerState();
-                if (
-                  retryState !== 1 &&
-                  retryState !== 3 &&
-                  jamStateRef.current?.isPlaying
-                ) {
-                  player.playVideo();
-                }
-              } catch {
-                // Player may no longer be available.
+          /*
+           * Keep trying muted playback until YouTube reports
+           * PLAYING/BUFFERING or the Jam stops. This handles
+           * the race where SONG_CHANGE/PLAY arrives before
+           * the iframe has finished loading the new video.
+           */
+          let attempts = 0;
+
+          const retryJamPlay = () => {
+            try {
+              const retryState =
+                player.getPlayerState();
+
+              if (
+                retryState === 1 ||
+                retryState === 3 ||
+                !jamStateRef.current?.isPlaying
+              ) {
+                jamPlayRetryTimerRef.current = null;
+                return;
               }
-            }, 700);
+
+              attempts += 1;
+
+              if (attempts > 10) {
+                jamPlayRetryTimerRef.current = null;
+                console.warn(
+                  "YOVI Jam guest playback could not start automatically."
+                );
+                return;
+              }
+
+              player.mute();
+              player.setVolume(0);
+              player.playVideo();
+
+              jamPlayRetryTimerRef.current =
+                setTimeout(retryJamPlay, 500);
+            } catch {
+              jamPlayRetryTimerRef.current = null;
+            }
+          };
+
+          jamPlayRetryTimerRef.current =
+            setTimeout(retryJamPlay, 500);
         }
 
         return;
@@ -3594,6 +3651,11 @@ cover_url:
         jamAudioUnlockedRef.current
       ) {
         try {
+          /*
+           * YouTube has now confirmed PLAYING. Only now do
+           * we restore audio for a guest that has already
+           * opted into Jam playback.
+           */
           playerRef.current?.unMute?.();
           playerRef.current?.setVolume?.(volumeRef.current);
         } catch {
