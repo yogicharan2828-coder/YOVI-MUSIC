@@ -1,5 +1,5 @@
-const API_BASE_URL =
-  "http://127.0.0.1:8000";
+import API_BASE_URL from "../config/api";
+
 
 const AUTH_TOKEN_KEY =
   "yovi_access_token";
@@ -287,6 +287,8 @@ export function logoutUser() {
   clearAuthToken();
 
 }
+
+
 // ============================================================
 // GOOGLE LOGIN
 // ============================================================
@@ -336,7 +338,6 @@ export async function authFetch(
       "application/json";
 
   }
-  
 
 
   const response =

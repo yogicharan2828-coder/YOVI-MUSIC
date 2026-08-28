@@ -13,8 +13,7 @@ import {
 
 import { usePlayer } from "../../context/PlayerContext";
 
-const API_BASE_URL =
-  "http://127.0.0.1:8000";
+import API_BASE_URL from "../../config/api";
 
 
 function parseSyncedLyrics(syncedLyrics) {

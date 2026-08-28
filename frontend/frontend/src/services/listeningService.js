@@ -1,5 +1,9 @@
-const API_BASE_URL =
-  "http://127.0.0.1:8000";
+import API_BASE_URL from "../config/api";
+
+
+// ============================================================
+// CONSTANTS
+// ============================================================
 
 const DEVICE_ID_KEY =
   "yovi_device_id";
@@ -122,21 +126,22 @@ export async function recordListeningEvent({
       song.provider ??
       song.external_source ??
       "unknown",
-      image:
-  song.image ??
-  song.cover_url ??
-  song.coverUrl ??
-  song.thumbnail ??
-  song.thumbnailUrl ??
-  null,
 
-cover_url:
-  song.cover_url ??
-  song.coverUrl ??
-  song.image ??
-  song.thumbnail ??
-  song.thumbnailUrl ??
-  null,
+    image:
+      song.image ??
+      song.cover_url ??
+      song.coverUrl ??
+      song.thumbnail ??
+      song.thumbnailUrl ??
+      null,
+
+    cover_url:
+      song.cover_url ??
+      song.coverUrl ??
+      song.image ??
+      song.thumbnail ??
+      song.thumbnailUrl ??
+      null,
 
     title:
       song.title ??

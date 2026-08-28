@@ -25,8 +25,7 @@ import useSongActions from "../hooks/useSongActions";
 import SongActionMenu from "../components/player/SongActionMenu";
 
 
-const API_BASE_URL =
-  "http://127.0.0.1:8000";
+import API_BASE_URL from "../config/api";
 
 const SEARCH_HISTORY_KEY =
   "yovi_search_history";

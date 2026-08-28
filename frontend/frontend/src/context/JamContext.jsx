@@ -7,6 +7,8 @@ import {
   useState,
 } from "react";
 
+import API_BASE_URL from "../config/api";
+
 
 const JamContext = createContext(null);
 
@@ -16,6 +18,39 @@ const INITIAL_JAM_STATE = {
   isPlaying: false,
   position: 0,
 };
+
+
+// ==========================================================
+// WEBSOCKET URL
+// ==========================================================
+
+function getJamWebSocketUrl(
+  sessionId,
+  userId
+) {
+
+  const apiUrl =
+    new URL(
+      API_BASE_URL
+    );
+
+
+  const protocol =
+    apiUrl.protocol === "https:"
+      ? "wss:"
+      : "ws:";
+
+
+  return (
+    `${protocol}//${apiUrl.host}` +
+    `/jam/ws/${encodeURIComponent(
+      sessionId
+    )}/${encodeURIComponent(
+      userId
+    )}`
+  );
+
+}
 
 
 export function JamProvider({ children }) {
@@ -75,11 +110,10 @@ export function JamProvider({ children }) {
 
       const socket =
         new WebSocket(
-          `ws://127.0.0.1:8000/jam/ws/${encodeURIComponent(
-            newSessionId
-          )}/${encodeURIComponent(
+          getJamWebSocketUrl(
+            newSessionId,
             newUserId
-          )}`
+          )
         );
 
 
