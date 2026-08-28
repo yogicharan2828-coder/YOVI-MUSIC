@@ -37,8 +37,16 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # ----------------------------------------------------
+        # LOCAL DEVELOPMENT
+        # ----------------------------------------------------
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+
+        # ----------------------------------------------------
+        # PRODUCTION FRONTEND
+        # ----------------------------------------------------
+        "https://yovimusic.netlify.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -67,12 +75,15 @@ app.include_router(listening_router)
 app.include_router(recommendations_router)
 app.include_router(explore_router)
 app.include_router(collection_router)
+
+
 # ============================================================
 # ROOT
 # ============================================================
 
 @app.get("/")
 def root():
+
     return {
         "message": "Welcome to YOVI Music API",
         "status": "online",
@@ -89,12 +100,17 @@ def health_check():
     try:
 
         with engine.connect() as connection:
-            connection.execute(text("SELECT 1"))
+
+            connection.execute(
+                text("SELECT 1")
+            )
+
 
         return {
             "status": "healthy",
             "database": "connected",
         }
+
 
     except Exception as e:
 
