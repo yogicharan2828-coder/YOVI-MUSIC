@@ -374,6 +374,13 @@ export function PlayerProvider({
     useRef(false);
 
 
+  const jamAudioUnlockedRef =
+    useRef(false);
+
+  const jamPlayRetryTimerRef =
+    useRef(null);
+
+
   useEffect(() => {
 
     currentSongRef.current =
@@ -2732,6 +2739,41 @@ cover_url:
 
 
   // ==========================================================
+  // JAM AUDIO UNLOCK
+  // ==========================================================
+
+  const unlockJamPlayback =
+    useCallback(() => {
+
+      jamAudioUnlockedRef.current = true;
+
+      const activePlayer = playerRef.current;
+
+      if (!activePlayer) {
+        return false;
+      }
+
+      try {
+        activePlayer.unMute();
+        activePlayer.setVolume(volumeRef.current);
+
+        if (jamStateRef.current?.isPlaying) {
+          activePlayer.playVideo();
+        }
+
+        return true;
+      } catch (error) {
+        console.warn(
+          "YOVI Jam audio unlock failed:",
+          error
+        );
+        return false;
+      }
+
+    }, []);
+
+
+  // ==========================================================
   // JAM SONG SYNCHRONIZATION
   // ==========================================================
 
@@ -2929,12 +2971,15 @@ cover_url:
         true;
 
 
-      player.unMute();
-
-
-      player.setVolume(
-        volumeRef.current
-      );
+      if (
+        !isHost &&
+        !jamAudioUnlockedRef.current
+      ) {
+        player.mute();
+      } else {
+        player.unMute();
+        player.setVolume(volumeRef.current);
+      }
 
 
       player.loadVideoById({
@@ -3143,16 +3188,41 @@ cover_url:
           false;
 
 
-        player.unMute();
-
-
-        player.setVolume(
-          volumeRef.current
-        );
+        if (
+          !isHost &&
+          !jamAudioUnlockedRef.current
+        ) {
+          player.mute();
+        } else {
+          player.unMute();
+          player.setVolume(volumeRef.current);
+        }
 
 
         player.playVideo();
 
+
+        if (!isHost) {
+          if (jamPlayRetryTimerRef.current) {
+            clearTimeout(jamPlayRetryTimerRef.current);
+          }
+
+          jamPlayRetryTimerRef.current =
+            setTimeout(() => {
+              try {
+                const retryState = player.getPlayerState();
+                if (
+                  retryState !== 1 &&
+                  retryState !== 3 &&
+                  jamStateRef.current?.isPlaying
+                ) {
+                  player.playVideo();
+                }
+              } catch {
+                // Player may no longer be available.
+              }
+            }, 700);
+        }
 
         return;
 
@@ -3510,6 +3580,26 @@ cover_url:
       setIsLoading(
         false
       );
+
+
+      if (jamPlayRetryTimerRef.current) {
+        clearTimeout(jamPlayRetryTimerRef.current);
+        jamPlayRetryTimerRef.current = null;
+      }
+
+
+      if (
+        jamConnected &&
+        !isHost &&
+        jamAudioUnlockedRef.current
+      ) {
+        try {
+          playerRef.current?.unMute?.();
+          playerRef.current?.setVolume?.(volumeRef.current);
+        } catch {
+          // Ignore until the iframe is ready.
+        }
+      }
 
 
       startProgressTracking();
@@ -4154,6 +4244,12 @@ cover_url:
       false;
 
 
+    if (jamPlayRetryTimerRef.current) {
+      clearTimeout(jamPlayRetryTimerRef.current);
+      jamPlayRetryTimerRef.current = null;
+    }
+
+
     if (
       playerRef.current
     ) {
@@ -4249,6 +4345,7 @@ cover_url:
 
 
         playSong,
+        unlockJamPlayback,
 
         playNext,
 
