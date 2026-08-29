@@ -380,6 +380,352 @@ export function PlayerProvider({
 
   const autoplayAfterReadyRef = useRef(false);
   const autoplayRetryTimerRef = useRef(null);
+  
+  // ==========================================================
+// BACKGROUND PLAYBACK
+// ==========================================================
+//
+// Remembers whether YOVI was actively playing when the
+// browser/app was moved into the background.
+//
+// IMPORTANT:
+// Jam playback is excluded. JamContext remains authoritative.
+//
+
+const wasPlayingBeforeBackgroundRef =
+  useRef(false);
+
+const backgroundPlaybackSongRef =
+  useRef(null);
+
+const backgroundPlaybackPositionRef =
+  useRef(0);
+  // ==========================================================
+// BACKGROUND PLAYBACK RECOVERY
+// ==========================================================
+//
+// We do NOT pause or stop the YouTube player when the page
+// becomes hidden.
+//
+// We only remember the playback state.
+//
+// When the page becomes visible again, we check the actual
+// YouTube player state and resume normal YOVI playback if
+// necessary.
+//
+// Jam is intentionally excluded so Jam synchronization is
+// never overridden by this recovery logic.
+// ==========================================================
+
+useEffect(() => {
+
+  const handleVisibilityChange = () => {
+
+    // ------------------------------------------------------
+    // PAGE ENTERING BACKGROUND
+    // ------------------------------------------------------
+
+    if (document.visibilityState === "hidden") {
+
+      /*
+       * Never interfere with Jam playback.
+       *
+       * JamContext + Jam synchronization remain
+       * authoritative.
+       */
+
+      if (
+        jamConnectedRef.current
+      ) {
+
+        wasPlayingBeforeBackgroundRef.current =
+          false;
+
+        backgroundPlaybackSongRef.current =
+          null;
+
+        return;
+
+      }
+
+
+      const activePlayer =
+        playerRef.current;
+
+
+      if (
+        !activePlayer ||
+        !youtubeReadyRef.current
+      ) {
+
+        wasPlayingBeforeBackgroundRef.current =
+          false;
+
+        return;
+
+      }
+
+
+      try {
+
+        const playerState =
+          activePlayer.getPlayerState();
+
+
+        /*
+         * YouTube:
+         *
+         * 1 = playing
+         * 3 = buffering
+         *
+         * Treat both as active playback.
+         */
+
+        const wasPlaying =
+          playerState === 1 ||
+          playerState === 3;
+
+
+        wasPlayingBeforeBackgroundRef.current =
+          wasPlaying;
+
+
+        if (
+          wasPlaying
+        ) {
+
+          backgroundPlaybackSongRef.current =
+            currentSongRef.current;
+
+
+          try {
+
+            backgroundPlaybackPositionRef.current =
+              activePlayer.getCurrentTime();
+
+          } catch {
+
+            backgroundPlaybackPositionRef.current =
+              currentTimeRef.current;
+
+          }
+
+        } else {
+
+          backgroundPlaybackSongRef.current =
+            null;
+
+        }
+
+      } catch {
+
+        wasPlayingBeforeBackgroundRef.current =
+          false;
+
+      }
+
+      return;
+
+    }
+
+
+    // ------------------------------------------------------
+    // PAGE RETURNING TO FOREGROUND
+    // ------------------------------------------------------
+
+    if (
+      document.visibilityState !== "visible"
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Jam is authoritative.
+     *
+     * Never automatically resume normal playback
+     * while connected to a Jam session.
+     */
+
+    if (
+      jamConnectedRef.current
+    ) {
+
+      wasPlayingBeforeBackgroundRef.current =
+        false;
+
+      backgroundPlaybackSongRef.current =
+        null;
+
+      return;
+
+    }
+
+
+    if (
+      !wasPlayingBeforeBackgroundRef.current
+    ) {
+
+      return;
+
+    }
+
+
+    const activePlayer =
+      playerRef.current;
+
+
+    if (
+      !activePlayer ||
+      !youtubeReadyRef.current
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Make sure the song we remember is still
+     * the song YOVI is currently displaying.
+     */
+
+    if (
+      backgroundPlaybackSongRef.current &&
+      currentSongRef.current &&
+      !isSameSong(
+        backgroundPlaybackSongRef.current,
+        currentSongRef.current
+      )
+    ) {
+
+      wasPlayingBeforeBackgroundRef.current =
+        false;
+
+      backgroundPlaybackSongRef.current =
+        null;
+
+      return;
+
+    }
+
+
+    try {
+
+      const playerState =
+        activePlayer.getPlayerState();
+
+
+      /*
+       * If YouTube is already playing or buffering,
+       * there is nothing to recover.
+       */
+
+      if (
+        playerState === 1 ||
+        playerState === 3
+      ) {
+
+        wasPlayingBeforeBackgroundRef.current =
+          false;
+
+        backgroundPlaybackSongRef.current =
+          null;
+
+        return;
+
+      }
+
+
+      /*
+       * Only recover if YouTube actually stopped
+       * being active while the page was hidden.
+       */
+
+      activePlayer.unMute();
+
+
+      activePlayer.setVolume(
+        volumeRef.current
+      );
+
+
+      const savedPosition =
+        Number(
+          backgroundPlaybackPositionRef.current
+        );
+
+
+      if (
+        Number.isFinite(
+          savedPosition
+        ) &&
+        savedPosition >= 0
+      ) {
+
+        /*
+         * Only seek if there is a meaningful
+         * saved position.
+         */
+
+        if (
+          savedPosition > 0
+        ) {
+
+          activePlayer.seekTo(
+            savedPosition,
+            true
+          );
+
+        }
+
+      }
+
+
+      activePlayer.playVideo();
+
+    } catch (error) {
+
+      console.warn(
+        "YOVI background playback recovery failed:",
+        error
+      );
+
+    }
+
+
+    /*
+     * Consume the recovery request so we don't
+     * repeatedly call playVideo().
+     */
+
+    wasPlayingBeforeBackgroundRef.current =
+      false;
+
+    backgroundPlaybackSongRef.current =
+      null;
+
+  };
+
+
+  document.addEventListener(
+    "visibilitychange",
+    handleVisibilityChange
+  );
+
+
+  return () => {
+
+    document.removeEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+  };
+
+}, []);
 
 
   useEffect(() => {
