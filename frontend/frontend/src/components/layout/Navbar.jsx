@@ -1573,6 +1573,17 @@ function Navbar({
           />
           <span>LIBRARY</span>
         </Link>
+        
+        <button
+  type="button"
+  className="yovi-mobile-nav-item yovi-mobile-jam-nav-item"
+  onClick={onJamOpen}
+  aria-label="Chartune Jam"
+  title="Chartune Jam"
+>
+  <ChartuneJamMark />
+  <span>JAM</span>
+</button>
  {/* PROFILE */}
   <button
     type="button"
@@ -1625,15 +1636,7 @@ function Navbar({
           Separate floating control for mobile.
       ===================================================== */}
 
-      <button
-        type="button"
-        className="mobile-jam-button"
-        onClick={onJamOpen}
-        aria-label="Chartune Jam"
-        title="Chartune Jam"
-      >
-        <ChartuneJamMark />
-      </button>
+      
 
 
       {/* =====================================================

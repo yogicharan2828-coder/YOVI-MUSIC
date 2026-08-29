@@ -9637,25 +9637,30 @@ body,
 
 }
 
-@media (max-width: 768px) {
+@media (max-width: 800px) {
+
   .yovi-mobile-bottom-nav {
     display: grid !important;
-    grid-template-columns: repeat(5, 1fr) !important;
+
+    grid-template-columns:
+      repeat(6, minmax(0, 1fr)) !important;
+
     overflow: visible !important;
+
     visibility: visible !important;
+
     opacity: 1 !important;
   }
 
-  .yovi-mobile-bottom-nav > * {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-  }
 }
 
 /* ==========================================================
    MOBILE FLOATING JAM BUTTON
    ========================================================== */
+
+/* ============================================================
+   MOBILE FLOATING CHARTUNE JAM
+   ============================================================ */
 
 .mobile-jam-button {
   display: none;
@@ -9670,9 +9675,11 @@ body,
 
     right: 18px;
 
-    bottom: calc(
-      78px + env(safe-area-inset-bottom, 0px)
-    );
+    bottom:
+      calc(
+        78px +
+        env(safe-area-inset-bottom, 0px)
+      );
 
     width: 52px;
     height: 52px;
@@ -9682,22 +9689,28 @@ body,
 
     padding: 0;
 
-    border: 1px solid rgba(201, 170, 112, 0.35);
+    border:
+      1px solid
+      rgba(214, 180, 119, 0.38);
 
     border-radius: 50%;
 
-    background: rgba(15, 15, 15, 0.96);
+    background:
+      rgba(12, 12, 12, 0.97);
 
-    color: #d8ba79;
+    color: var(--accent);
 
-    z-index: 1001;
+    box-shadow:
+      0 8px 28px
+      rgba(0, 0, 0, 0.42);
+
+    z-index: 10000;
 
     cursor: pointer;
 
     -webkit-tap-highlight-color: transparent;
 
-    box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.35);
+    touch-action: manipulation;
   }
 
   .mobile-jam-button:active {
@@ -9710,4 +9723,5 @@ body,
     align-items: center;
     justify-content: center;
   }
+
 }
