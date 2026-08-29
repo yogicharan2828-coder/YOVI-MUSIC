@@ -421,33 +421,13 @@ useEffect(() => {
 
   const handleVisibilityChange = () => {
 
-    // ------------------------------------------------------
-    // PAGE ENTERING BACKGROUND
-    // ------------------------------------------------------
+    // ======================================================
+    // ENTERING BACKGROUND
+    // ======================================================
 
-    if (document.visibilityState === "hidden") {
-
-      /*
-       * Never interfere with Jam playback.
-       *
-       * JamContext + Jam synchronization remain
-       * authoritative.
-       */
-
-      if (
-        jamConnectedRef.current
-      ) {
-
-        wasPlayingBeforeBackgroundRef.current =
-          false;
-
-        backgroundPlaybackSongRef.current =
-          null;
-
-        return;
-
-      }
-
+    if (
+      document.visibilityState === "hidden"
+    ) {
 
       const activePlayer =
         playerRef.current;
@@ -466,20 +446,51 @@ useEffect(() => {
       }
 
 
+      // ----------------------------------------------------
+      // JAM
+      // ----------------------------------------------------
+
+      if (
+        jamConnectedRef.current
+      ) {
+
+        /*
+         * Do NOT call pauseVideo().
+         *
+         * We only remember whether the Jam state says
+         * playback should currently be active.
+         */
+
+        wasPlayingBeforeBackgroundRef.current =
+          Boolean(
+            jamStateRef.current?.isPlaying
+          );
+
+
+        backgroundPlaybackSongRef.current =
+          currentSongRef.current;
+
+
+        backgroundPlaybackPositionRef.current =
+          Number(
+            jamStateRef.current?.position ?? 0
+          );
+
+
+        return;
+
+      }
+
+
+      // ----------------------------------------------------
+      // NORMAL YOVI PLAYBACK
+      // ----------------------------------------------------
+
       try {
 
         const playerState =
           activePlayer.getPlayerState();
 
-
-        /*
-         * YouTube:
-         *
-         * 1 = playing
-         * 3 = buffering
-         *
-         * Treat both as active playback.
-         */
 
         const wasPlaying =
           playerState === 1 ||
@@ -524,48 +535,18 @@ useEffect(() => {
 
       }
 
+
       return;
 
     }
 
 
-    // ------------------------------------------------------
-    // PAGE RETURNING TO FOREGROUND
-    // ------------------------------------------------------
+    // ======================================================
+    // RETURNING TO FOREGROUND
+    // ======================================================
 
     if (
       document.visibilityState !== "visible"
-    ) {
-
-      return;
-
-    }
-
-
-    /*
-     * Jam is authoritative.
-     *
-     * Never automatically resume normal playback
-     * while connected to a Jam session.
-     */
-
-    if (
-      jamConnectedRef.current
-    ) {
-
-      wasPlayingBeforeBackgroundRef.current =
-        false;
-
-      backgroundPlaybackSongRef.current =
-        null;
-
-      return;
-
-    }
-
-
-    if (
-      !wasPlayingBeforeBackgroundRef.current
     ) {
 
       return;
@@ -587,9 +568,180 @@ useEffect(() => {
     }
 
 
+    // ======================================================
+    // JAM RECOVERY
+    // ======================================================
+
+    if (
+      jamConnectedRef.current
+    ) {
+
+      const currentJamState =
+        jamStateRef.current;
+
+
+      /*
+       * Jam is authoritative.
+       *
+       * Never resume just because the local player
+       * was playing before backgrounding.
+       */
+
+      if (
+        !currentJamState?.isPlaying
+      ) {
+
+        wasPlayingBeforeBackgroundRef.current =
+          false;
+
+        backgroundPlaybackSongRef.current =
+          null;
+
+        return;
+
+      }
+
+
+      const jamSong =
+        currentJamState.currentSong;
+
+
+      const localSong =
+        currentSongRef.current;
+
+
+      /*
+       * We need an active Jam song.
+       */
+
+      if (
+        !jamSong
+      ) {
+
+        return;
+
+      }
+
+
+      /*
+       * If the local player has a different song,
+       * let the normal Jam synchronization effect
+       * handle the song change.
+       */
+
+      if (
+        localSong &&
+        !isSameSong(
+          localSong,
+          jamSong
+        )
+      ) {
+
+        return;
+
+      }
+
+
+      try {
+
+        const playerState =
+          activePlayer.getPlayerState();
+
+
+        /*
+         * Already playing/buffering:
+         * nothing to recover.
+         */
+
+        if (
+          playerState === 1 ||
+          playerState === 3
+        ) {
+
+          wasPlayingBeforeBackgroundRef.current =
+            false;
+
+          backgroundPlaybackSongRef.current =
+            null;
+
+          return;
+
+        }
+
+
+        const jamPosition =
+          Number(
+            currentJamState.position ?? 0
+          );
+
+
+        activePlayer.unMute();
+
+
+        activePlayer.setVolume(
+          volumeRef.current
+        );
+
+
+        /*
+         * Jam position is authoritative.
+         */
+
+        if (
+          Number.isFinite(
+            jamPosition
+          ) &&
+          jamPosition >= 0
+        ) {
+
+          activePlayer.seekTo(
+            jamPosition,
+            true
+          );
+
+        }
+
+
+        activePlayer.playVideo();
+
+      } catch (error) {
+
+        console.warn(
+          "YOVI Jam background playback recovery failed:",
+          error
+        );
+
+      }
+
+
+      wasPlayingBeforeBackgroundRef.current =
+        false;
+
+      backgroundPlaybackSongRef.current =
+        null;
+
+
+      return;
+
+    }
+
+
+    // ======================================================
+    // NORMAL YOVI RECOVERY
+    // ======================================================
+
+    if (
+      !wasPlayingBeforeBackgroundRef.current
+    ) {
+
+      return;
+
+    }
+
+
     /*
-     * Make sure the song we remember is still
-     * the song YOVI is currently displaying.
+     * Make sure the remembered song is still
+     * the current song.
      */
 
     if (
@@ -619,8 +771,7 @@ useEffect(() => {
 
 
       /*
-       * If YouTube is already playing or buffering,
-       * there is nothing to recover.
+       * Already playing/buffering.
        */
 
       if (
@@ -638,11 +789,6 @@ useEffect(() => {
 
       }
 
-
-      /*
-       * Only recover if YouTube actually stopped
-       * being active while the page was hidden.
-       */
 
       activePlayer.unMute();
 
@@ -662,24 +808,13 @@ useEffect(() => {
         Number.isFinite(
           savedPosition
         ) &&
-        savedPosition >= 0
+        savedPosition > 0
       ) {
 
-        /*
-         * Only seek if there is a meaningful
-         * saved position.
-         */
-
-        if (
-          savedPosition > 0
-        ) {
-
-          activePlayer.seekTo(
-            savedPosition,
-            true
-          );
-
-        }
+        activePlayer.seekTo(
+          savedPosition,
+          true
+        );
 
       }
 
@@ -695,11 +830,6 @@ useEffect(() => {
 
     }
 
-
-    /*
-     * Consume the recovery request so we don't
-     * repeatedly call playVideo().
-     */
 
     wasPlayingBeforeBackgroundRef.current =
       false;
