@@ -119,6 +119,7 @@ function JamPanel({
 
   const {
     currentSong,
+    unlockJamPlayback,
   } = usePlayer();
 
 
@@ -385,6 +386,9 @@ function JamPanel({
         normalizedCode,
         currentUserId
       );
+
+      // This click is the browser user gesture used to unlock Jam audio.
+      unlockJamPlayback();
 
     } catch (err) {
 

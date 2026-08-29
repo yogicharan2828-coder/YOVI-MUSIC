@@ -82,6 +82,7 @@ class ConnectionManager:
         self,
         session_id: str,
         message: dict,
+        exclude_user_id: str | None = None,
     ):
 
         connections = self.connections.get(
@@ -94,6 +95,9 @@ class ConnectionManager:
         for user_id, websocket in (
             connections.items()
         ):
+
+            if exclude_user_id is not None and user_id == exclude_user_id:
+                continue
 
             try:
                 await websocket.send_json(
@@ -385,6 +389,7 @@ async def jam_websocket(
                         "server_time":
                             time.time(),
                     },
+                    exclude_user_id=user_id,
                 )
 
 
@@ -421,6 +426,7 @@ async def jam_websocket(
                         "server_time":
                             time.time(),
                     },
+                    exclude_user_id=user_id,
                 )
 
 
@@ -456,6 +462,7 @@ async def jam_websocket(
                         "server_time":
                             time.time(),
                     },
+                    exclude_user_id=user_id,
                 )
 
 
@@ -503,6 +510,7 @@ async def jam_websocket(
                         "server_time":
                             time.time(),
                     },
+                    exclude_user_id=user_id,
                 )
 
 
