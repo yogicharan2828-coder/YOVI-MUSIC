@@ -476,15 +476,12 @@ button {
 /* =================================
    HERO RESPONSIVE
 ================================= */
-@media (max-width: 768px) {
-  .hero-section {
-    height: 480px;
-  }
 
-  .hero-image img {
-    object-position: center 35%;
+@media (max-width: 800px) {
+
+  .hero-section {
+    height: 560px;
   }
-}
 
   .hero-content {
     padding:
@@ -518,7 +515,7 @@ button {
   .hero-index {
     display: none;
   }
-
+}
 /* =================================
    MUSIC DISCOVERY
 ================================= */
@@ -9656,3 +9653,61 @@ body,
   }
 }
 
+/* ==========================================================
+   MOBILE FLOATING JAM BUTTON
+   ========================================================== */
+
+.mobile-jam-button {
+  display: none;
+}
+
+@media (max-width: 800px) {
+
+  .mobile-jam-button {
+    display: flex;
+
+    position: fixed;
+
+    right: 18px;
+
+    bottom: calc(
+      78px + env(safe-area-inset-bottom, 0px)
+    );
+
+    width: 52px;
+    height: 52px;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+
+    border: 1px solid rgba(201, 170, 112, 0.35);
+
+    border-radius: 50%;
+
+    background: rgba(15, 15, 15, 0.96);
+
+    color: #d8ba79;
+
+    z-index: 1001;
+
+    cursor: pointer;
+
+    -webkit-tap-highlight-color: transparent;
+
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .mobile-jam-button:active {
+    transform: scale(0.94);
+  }
+
+  .mobile-jam-button .chartune-jam-mark {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+  }
+}

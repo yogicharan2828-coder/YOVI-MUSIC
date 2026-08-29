@@ -1618,7 +1618,22 @@ function Navbar({
     </span>
 
   </button>
+ 
       </nav>
+            {/* =====================================================
+          MOBILE JAM BUTTON
+          Separate floating control for mobile.
+      ===================================================== */}
+
+      <button
+        type="button"
+        className="mobile-jam-button"
+        onClick={onJamOpen}
+        aria-label="Chartune Jam"
+        title="Chartune Jam"
+      >
+        <ChartuneJamMark />
+      </button>
 
 
       {/* =====================================================
