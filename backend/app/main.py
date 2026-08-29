@@ -47,6 +47,9 @@ app.add_middleware(
         # PRODUCTION FRONTEND
         # ----------------------------------------------------
         "https://yovimusic.netlify.app",
+
+        #PRODUCTION DEVELOPMENT NEW ONE 
+        "https://yovi-music.netlify.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
