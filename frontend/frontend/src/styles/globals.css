@@ -476,12 +476,15 @@ button {
 /* =================================
    HERO RESPONSIVE
 ================================= */
-
-@media (max-width: 800px) {
-
+@media (max-width: 768px) {
   .hero-section {
-    height: 560px;
+    height: 480px;
   }
+
+  .hero-image img {
+    object-position: center 35%;
+  }
+}
 
   .hero-content {
     padding:
@@ -515,7 +518,7 @@ button {
   .hero-index {
     display: none;
   }
-}
+
 /* =================================
    MUSIC DISCOVERY
 ================================= */
@@ -9298,3 +9301,358 @@ button {
   }
 
 }
+
+/* ============================================================
+   YOVI MOBILE FOUNDATION — PHASE 1
+   Mobile-first navigation, safe areas and touch-safe inputs.
+   This section intentionally overrides earlier responsive rules
+   without changing playback/Jam JavaScript.
+   ============================================================ */
+
+/* Keep the app from creating accidental page-level horizontal scroll. */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Mobile navigation is hidden on desktop. */
+.yovi-mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 800px) {
+
+  /* ----------------------------------------------------------
+     SAFE AREA — TOP NAV
+     ---------------------------------------------------------- */
+
+  .yovi-navbar {
+    height: calc(68px + env(safe-area-inset-top, 0px));
+    min-height: calc(68px + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    box-sizing: border-box;
+  }
+
+
+  /* ----------------------------------------------------------
+     MOBILE BOTTOM NAVIGATION
+     ---------------------------------------------------------- */
+
+  .yovi-mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    z-index: 250;
+
+    min-height: 64px;
+
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+
+    padding:
+      7px
+      8px
+      calc(7px + env(safe-area-inset-bottom, 0px));
+
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+
+    background:
+      rgba(12, 12, 12, 0.96);
+
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+
+    box-shadow:
+      0 -10px 35px rgba(0, 0, 0, 0.28);
+  }
+
+
+  .yovi-mobile-nav-item {
+    min-width: 0;
+    min-height: 50px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 4px;
+
+    border: 0;
+    border-radius: 12px;
+
+    background: transparent;
+
+    color: rgba(244, 241, 235, 0.48);
+
+    text-decoration: none;
+
+    font-family: inherit;
+    font-size: 8px;
+    font-weight: 600;
+    line-height: 1;
+
+    letter-spacing: 0.12em;
+
+    -webkit-tap-highlight-color: transparent;
+
+    touch-action: manipulation;
+
+    transition:
+      color 0.18s ease,
+      background 0.18s ease;
+  }
+
+
+  .yovi-mobile-nav-item svg {
+    flex: 0 0 auto;
+  }
+
+
+  .yovi-mobile-nav-item.active {
+    color: var(--accent);
+    background: rgba(214, 180, 119, 0.07);
+  }
+
+
+  .yovi-mobile-nav-item:active {
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+
+  /* ----------------------------------------------------------
+     KEEP THE MINI PLAYER ABOVE THE BOTTOM NAV
+     ---------------------------------------------------------- */
+
+  .music-player {
+    bottom:
+      calc(
+        64px +
+        env(safe-area-inset-bottom, 0px)
+      );
+
+    z-index: 240;
+
+    padding-bottom: 9px;
+  }
+
+
+  /*
+   * Leave enough scroll room for the fixed mobile navigation.
+   * Existing page-specific padding remains intact.
+   */
+  .yovi-app > main {
+    padding-bottom:
+      calc(
+        72px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+
+  /* ----------------------------------------------------------
+     IOS / MOBILE INPUT SAFETY
+     ---------------------------------------------------------- */
+
+  .nav-search-form input,
+  .jam-input-row input,
+  .auth-input-wrapper input,
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="url"],
+  input[type="tel"],
+  textarea {
+    font-size: 16px;
+  }
+
+
+  /* ----------------------------------------------------------
+     SONG ACTION MENU — FINAL MOBILE DEFINITION
+     ---------------------------------------------------------- */
+
+  .song-action-overlay {
+    z-index: 1200;
+
+    padding:
+      10px
+      10px
+      calc(
+        10px +
+        env(safe-area-inset-bottom, 0px)
+      );
+
+    align-items: flex-end;
+  }
+
+
+  .song-action-menu {
+    width: 100%;
+    max-width: 460px;
+
+    max-height:
+      calc(
+        100dvh -
+        20px -
+        env(safe-area-inset-bottom, 0px)
+      );
+
+    overflow-y: auto;
+    overscroll-behavior: contain;
+
+    padding: 16px;
+
+    border-radius: 18px;
+
+    box-sizing: border-box;
+
+    -webkit-overflow-scrolling: touch;
+  }
+
+
+  .song-action-menu > button {
+    min-height: 52px;
+    font-size: 14px;
+  }
+
+
+  /* ----------------------------------------------------------
+     JAM OVERLAY — SAFE AREA ONLY
+     No Jam behavior/state is changed.
+     ---------------------------------------------------------- */
+
+  .jam-overlay {
+    height: 100dvh;
+
+    padding:
+      calc(
+        12px +
+        env(safe-area-inset-top, 0px)
+      )
+      12px
+      calc(
+        12px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+
+  .jam-panel {
+    max-height:
+      calc(
+        100dvh -
+        24px -
+        env(safe-area-inset-top, 0px) -
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+
+  /* ----------------------------------------------------------
+     NOW PLAYING — SAFE AREA
+     ---------------------------------------------------------- */
+
+  .now-playing-overlay {
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+
+  /* ----------------------------------------------------------
+     AUTH FORMS — KEYBOARD-FRIENDLY POSITIONING
+     ---------------------------------------------------------- */
+
+  .auth-page,
+  .auth-container,
+  .auth-shell {
+    min-height: 100dvh;
+  }
+
+
+  /* ----------------------------------------------------------
+     TOUCH DEVICES — DON'T REQUIRE HOVER FOR PRIMARY CONTROLS
+     ---------------------------------------------------------- */
+
+  .music-card-menu-button,
+  .queue-item-play {
+    opacity: 1;
+    visibility: visible;
+  }
+
+}
+
+
+@media (max-width: 420px) {
+
+  .yovi-navbar {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+
+  .yovi-logo-text {
+    font-size: 19px;
+    letter-spacing: 3px;
+  }
+
+
+  .yovi-actions {
+    gap: 8px;
+  }
+
+
+  .nav-icon {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+
+  .profile-button {
+    width: 40px;
+    height: 40px;
+  }
+
+
+  .yovi-mobile-bottom-nav {
+    min-height: 62px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+
+  .yovi-mobile-nav-item {
+    min-height: 48px;
+    font-size: 7px;
+  }
+
+
+  .music-player {
+    bottom:
+      calc(
+        62px +
+        env(safe-area-inset-bottom, 0px)
+      );
+  }
+
+}
+
+@media (max-width: 768px) {
+  .yovi-mobile-bottom-nav {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  .yovi-mobile-bottom-nav > * {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+

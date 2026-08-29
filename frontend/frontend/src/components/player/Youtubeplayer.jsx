@@ -11,6 +11,7 @@ function YouTubePlayer({
 
   const {
     youtubeBootstrapId,
+    jamConnected,
     handlePlayerReady,
     handlePlayerPlay,
     handlePlayerPause,
@@ -24,15 +25,37 @@ function YouTubePlayer({
   }
 
 
+  const audioOnly =
+    Boolean(jamConnected);
+
+
   return (
 
     <div
       className={
-        visible
-          ? "youtube-player-surface visible"
-          : "youtube-player-surface"
+        audioOnly
+          ? "youtube-player-surface jam-audio-only"
+          : visible
+            ? "youtube-player-surface visible"
+            : "youtube-player-surface"
       }
       aria-hidden="true"
+      style={
+        audioOnly
+          ? {
+              position: "absolute",
+              width: "1px",
+              height: "1px",
+              minWidth: "1px",
+              minHeight: "1px",
+              overflow: "hidden",
+              opacity: 0,
+              pointerEvents: "none",
+              left: "-9999px",
+              top: "0",
+            }
+          : undefined
+      }
     >
 
       <YouTube
@@ -68,13 +91,6 @@ function YouTubePlayer({
 
             enablejsapi: 1,
 
-            /*
-             * Always use the actual YOVI
-             * frontend origin.
-             *
-             * This works with localhost,
-             * 127.0.0.1 and production.
-             */
             origin:
               window.location.origin,
 

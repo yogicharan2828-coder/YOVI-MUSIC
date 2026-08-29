@@ -1,5 +1,8 @@
 import {
   Search,
+  House,
+  Compass,
+  Library,
   UserRound,
   X,
   Play,
@@ -1479,6 +1482,143 @@ function Navbar({
         </div>
 
       </div>
+
+
+      {/* =====================================================
+          MOBILE NAVIGATION
+          Desktop navigation remains unchanged.
+      ===================================================== */}
+
+      <nav
+        className="yovi-mobile-bottom-nav"
+        aria-label="Mobile navigation"
+      >
+
+        <Link
+          to="/"
+          className={
+            isHome
+              ? "yovi-mobile-nav-item active"
+              : "yovi-mobile-nav-item"
+          }
+          aria-current={
+            isHome
+              ? "page"
+              : undefined
+          }
+        >
+          <House
+            size={20}
+            strokeWidth={1.6}
+          />
+          <span>HOME</span>
+        </Link>
+
+
+        <Link
+          to="/explore"
+          className={
+            location.pathname === "/explore"
+              ? "yovi-mobile-nav-item active"
+              : "yovi-mobile-nav-item"
+          }
+          aria-current={
+            location.pathname === "/explore"
+              ? "page"
+              : undefined
+          }
+        >
+          <Compass
+            size={20}
+            strokeWidth={1.6}
+          />
+          <span>EXPLORE</span>
+        </Link>
+
+
+        <button
+          type="button"
+          className={
+            searchOpen || location.pathname === "/search"
+              ? "yovi-mobile-nav-item active"
+              : "yovi-mobile-nav-item"
+          }
+          onClick={openSearch}
+          aria-label="Search"
+        >
+          <Search
+            size={20}
+            strokeWidth={1.6}
+          />
+          <span>SEARCH</span>
+        </button>
+
+
+        <Link
+          to="/collections"
+          className={
+            location.pathname === "/collections"
+              ? "yovi-mobile-nav-item active"
+              : "yovi-mobile-nav-item"
+          }
+          aria-current={
+            location.pathname === "/collections"
+              ? "page"
+              : undefined
+          }
+        >
+          <Library
+            size={20}
+            strokeWidth={1.6}
+          />
+          <span>LIBRARY</span>
+        </Link>
+ {/* PROFILE */}
+  <button
+    type="button"
+    className="yovi-mobile-nav-item"
+    onClick={
+      isAuthenticated
+        ? handleProfile
+        : handleProfileClick
+    }
+    aria-label={
+      isAuthenticated
+        ? "Profile"
+        : "Sign in"
+    }
+  >
+
+    {authLoading ? (
+
+      <UserRound
+        size={20}
+        strokeWidth={1.6}
+      />
+
+    ) : isAuthenticated ? (
+
+      <span className="yovi-mobile-profile-initial">
+        {userInitial}
+      </span>
+
+    ) : (
+
+      <UserRound
+        size={20}
+        strokeWidth={1.6}
+      />
+
+    )}
+
+    <span>
+      {isAuthenticated
+        ? "PROFILE"
+        : "SIGN IN"}
+    </span>
+
+  </button>
+      </nav>
 
 
       {/* =====================================================
