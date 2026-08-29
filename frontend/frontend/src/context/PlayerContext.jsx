@@ -11,7 +11,6 @@ import { findYouTubeSong } from "../services/youtube";
 
 import {
   recordListeningEvent,
-  getListeningHistory,
 } from "../services/listeningService";
 
 import { useJam } from "./JamContext";
@@ -245,13 +244,6 @@ export function PlayerProvider({
     useRef(0);
 
 
-  // Normal playback requested before the YouTube iframe is ready.
-  // The request is completed from handlePlayerReady so the first click
-  // is never lost.
-  const autoplayAfterReadyRef =
-    useRef(null);
-
-
   const youtubeReadyRef =
     useRef(false);
 
@@ -381,16 +373,13 @@ export function PlayerProvider({
     useRef(false);
 
 
-  const jamAudioUnlockedRef =
-    useRef(false);
+  // A React state tick used to re-run Jam synchronization after
+  // asynchronous YouTube loading completes. Refs alone do not
+  // trigger effects when they are cleared.
+  const [jamSyncVersion, setJamSyncVersion] = useState(0);
 
-  // Explicit local Jam commands are broadcast immediately. This ref
-  // prevents asynchronous YouTube callbacks from echoing them again.
-  const hostJamCommandRef =
-    useRef(null);
-
-  const jamPlayRetryTimerRef =
-    useRef(null);
+  const autoplayAfterReadyRef = useRef(false);
+  const autoplayRetryTimerRef = useRef(null);
 
 
   useEffect(() => {
@@ -433,6 +422,16 @@ export function PlayerProvider({
   ]);
 
 
+  useEffect(() => {
+    return () => {
+      if (autoplayRetryTimerRef.current) {
+        clearTimeout(autoplayRetryTimerRef.current);
+        autoplayRetryTimerRef.current = null;
+      }
+    };
+  }, []);
+
+
   // ==========================================================
   // LOAD USER COLLECTIONS
   // ==========================================================
@@ -465,12 +464,10 @@ export function PlayerProvider({
           libraryData,
           favoriteData,
           playlistData,
-          historyData,
         ] = await Promise.all([
           getLibrary(),
           getFavorites(),
           getPlaylists(),
-          getListeningHistory(50),
         ]);
 
 
@@ -490,134 +487,6 @@ export function PlayerProvider({
           Array.isArray(favoriteData)
             ? favoriteData
             : []
-        );
-
-
-        // ------------------------------------------------------
-        // RECENTLY PLAYED
-        // ------------------------------------------------------
-        //
-        // Listening history is returned newest-first.
-        // Multiple events can exist for the same song, so
-        // keep only the newest event for each song.
-        //
-
-        const historyMap = new Map();
-
-
-        if (Array.isArray(historyData)) {
-
-          historyData.forEach((event) => {
-
-            if (!event) {
-              return;
-            }
-
-
-            const externalId =
-              event.external_id != null
-                ? String(event.external_id)
-                : "";
-
-
-            const songId =
-              event.song_id != null
-                ? String(event.song_id)
-                : "";
-                
-
-
-            const identity =
-              [
-                event.external_source ?? "",
-                externalId,
-                songId,
-                event.title ?? "",
-                event.artist ?? "",
-              ]
-                .join("|")
-                .toLowerCase();
-
-
-            if (!identity || historyMap.has(identity)) {
-              return;
-            }
-
-
-            const historySong = {
-              id:
-                event.external_id != null
-                  ? String(event.external_id)
-                  : event.song_id,
-
-              song_id:
-                event.song_id ?? null,
-
-              title:
-                event.title ?? "",
-
-              artist:
-                event.artist ?? "",
-
-              album:
-                event.album ?? "",
-
-              language:
-                event.language ?? "",
-
-              genre:
-                event.genre ?? "",
-
-              mood:
-                event.mood ?? "",
-
-              provider:
-                event.external_source ?? "unknown",
-
-              external_id:
-                event.external_id ?? null,
-
-              external_source:
-                event.external_source ?? null,
-
-              youtubeVideoId:
-                event.external_source === "youtube"
-                  ? event.external_id
-                  : null,
-                  image:
-  event.image ??
-  event.cover_url ??
-  null,
-
-cover_url:
-  event.cover_url ??
-  event.image ??
-  null,
-
-            };
-
-
-            if (
-              historySong.title &&
-              historySong.artist
-            ) {
-
-              historyMap.set(
-                identity,
-                historySong
-              );
-
-            }
-
-          });
-
-        }
-
-
-        setRecentlyPlayed(
-          Array.from(
-            historyMap.values()
-          ).slice(0, 10)
         );
 
 
@@ -723,64 +592,72 @@ cover_url:
   // LISTENING EVENT
   // ==========================================================
 
- const sendListeningEvent =
-  useCallback(
-    (
-      eventType,
-      song = listeningSongRef.current,
-      positionSeconds = currentTimeRef.current,
-      durationSeconds = durationRef.current
-    ) => {
-
-      if (
-        !song ||
-        !eventType
-      ) {
-        return;
-      }
-
-      const songWithArtwork = {
-        ...song,
-
-        image:
-          song.image ??
-          song.cover_url ??
-          song.coverUrl ??
-          null,
-
-        cover_url:
-          song.cover_url ??
-          song.image ??
-          song.coverUrl ??
-          null,
-      };
-
-      const numericPosition =
-        Number(positionSeconds);
-
-      const numericDuration =
-        Number(durationSeconds);
-
-      const safePosition =
-        Number.isFinite(numericPosition)
-          ? Math.max(0, numericPosition)
-          : 0;
-
-      const safeDuration =
-        Number.isFinite(numericDuration)
-          ? Math.max(0, numericDuration)
-          : 0;
-
-      void recordListeningEvent({
-        song: songWithArtwork,
+  const sendListeningEvent =
+    useCallback(
+      (
         eventType,
-        positionSeconds: safePosition,
-        durationSeconds: safeDuration,
-      });
+        song =
+          listeningSongRef.current,
+        positionSeconds =
+          currentTimeRef.current,
+        durationSeconds =
+          durationRef.current
+      ) => {
 
-    },
-    []
-  );
+        if (
+          !song ||
+          !eventType
+        ) {
+          return;
+        }
+
+
+        const numericPosition =
+          Number(
+            positionSeconds
+          );
+
+
+        const numericDuration =
+          Number(
+            durationSeconds
+          );
+
+
+        const safePosition =
+          Number.isFinite(
+            numericPosition
+          )
+            ? Math.max(
+                0,
+                numericPosition
+              )
+            : 0;
+
+
+        const safeDuration =
+          Number.isFinite(
+            numericDuration
+          )
+            ? Math.max(
+                0,
+                numericDuration
+              )
+            : 0;
+
+
+        void recordListeningEvent({
+          song,
+          eventType,
+          positionSeconds:
+            safePosition,
+          durationSeconds:
+            safeDuration,
+        });
+
+      },
+      []
+    );
 
 
   // ==========================================================
@@ -1416,17 +1293,6 @@ cover_url:
           options.fromJam === true;
 
 
-        // Guests do not control the shared Jam playback.
-        // Their local volume remains independent.
-        if (
-          jamConnected &&
-          !isHost &&
-          !fromJam
-        ) {
-          return false;
-        }
-
-
         const jamPosition =
           Number(
             options.jamPosition ?? 0
@@ -1520,12 +1386,7 @@ cover_url:
           ...song,
           youtubeVideoId:
             videoId,
-            
         };
-        console.log(
-  "[YOVI] Playing song:",
-  resolvedSong
-);
 
 
         // ------------------------------------------------------
@@ -1555,14 +1416,18 @@ cover_url:
             videoId
           );
 
+          // The YouTube iframe is created from youtubeBootstrapId.
+          // A Jam song can already contain its videoId, so make sure
+          // the player is mounted even when no previous song was played.
+          setYoutubeBootstrapId(
+            (previous) => previous ?? videoId
+          );
 
           if (!fromJam) {
-            autoplayAfterReadyRef.current = {
-              videoId,
-              position: 0,
-            };
+            // Preserve a normal user's first click while the iframe
+            // is being mounted/initialized.
+            autoplayAfterReadyRef.current = true;
           }
-
 
           if (fromJam) {
 
@@ -1601,9 +1466,6 @@ cover_url:
 
 
         ++playRequestId.current;
-
-
-        autoplayAfterReadyRef.current = null;
 
 
         setIsLoading(
@@ -1899,16 +1761,10 @@ cover_url:
             );
 
 
-          hostJamCommandRef.current = "PLAY";
-
           jamSongChange(
             resolvedSong,
             0
           );
-
-          // A song selection is a PLAY action in YOVI. Send it explicitly
-          // instead of depending on YouTube's asynchronous onPlay event.
-          jamPlay(0);
 
         }
 
@@ -1919,7 +1775,6 @@ cover_url:
       [
         jamConnected,
         isHost,
-        jamPlay,
         jamSongChange,
         resolveYouTubeForPlayback,
         sendListeningEvent,
@@ -2780,198 +2635,252 @@ cover_url:
 
 
   // ==========================================================
-  // JAM AUDIO UNLOCK
-  // ==========================================================
-
-  const unlockJamPlayback =
-    useCallback(() => {
-
-      // Called directly by the guest's JOIN button.
-      jamAudioUnlockedRef.current = true;
-
-      const activePlayer =
-        playerRef.current;
-
-      if (!activePlayer) {
-        return true;
-      }
-
-      try {
-
-        activePlayer.unMute();
-        activePlayer.setVolume(
-          volumeRef.current
-        );
-
-        if (
-          jamStateRef.current?.isPlaying
-        ) {
-          activePlayer.playVideo();
-        }
-
-        return true;
-
-      } catch (error) {
-
-        console.warn(
-          "YOVI Jam audio unlock failed:",
-          error
-        );
-
-        return false;
-
-      }
-
-    }, []);
-
-
-  // ==========================================================
-  // JAM GUEST SONG SYNCHRONIZATION
+  // JAM SONG SYNCHRONIZATION
   // ==========================================================
 
   /*
-   * Only guests consume the shared Jam playback state.
-   * The host owns the real player and broadcasts its local
-   * actions through handlePlayerPlay/Pause/seek/song change.
+   * This effect reacts ONLY when the Jam's
+   * current song changes.
    *
-   * This prevents the host's echoed WebSocket state from racing
-   * with the host's own YouTube callbacks.
+   * It does not try to decide whether the
+   * guest should play or pause.
+   *
+   * That is handled by the playback effect.
    */
+
   useEffect(() => {
 
     if (
       !jamConnected ||
-      isHost ||
       !jamState?.currentSong
     ) {
       return;
     }
 
+
     const jamSong =
       jamState.currentSong;
 
+
     const jamSongId =
-      getSongIdentity(jamSong);
+      getSongIdentity(
+        jamSong
+      );
+
 
     if (!jamSongId) {
       return;
     }
 
+
+    /*
+     * Same song:
+     *
+     * Do not reload it.
+     */
+
     if (
       lastJamSongId.current ===
       jamSongId
     ) {
+
       pendingJamPosition.current =
         Number.isFinite(
-          Number(jamState.position)
+          Number(
+            jamState.position
+          )
         )
           ? Math.max(
               0,
-              Number(jamState.position)
+              Number(
+                jamState.position
+              )
             )
           : 0;
+
+
       return;
+
     }
+
+
+    /*
+     * New Jam song.
+     */
 
     lastJamSongId.current =
       jamSongId;
 
-    const position =
-      Number(jamState.position ?? 0);
+
+    const rawPosition =
+      Number(
+        jamState.position ?? 0
+      );
+
 
     const safePosition =
-      Number.isFinite(position)
-        ? Math.max(0, position)
+      Number.isFinite(
+        rawPosition
+      )
+        ? Math.max(
+            0,
+            rawPosition
+          )
         : 0;
+
 
     pendingJamSong.current =
       jamSong;
 
+
     pendingJamPosition.current =
       safePosition;
 
+
     pendingJamPlay.current =
-      Boolean(jamState.isPlaying);
+      Boolean(
+        jamState.isPlaying
+      );
+
 
     pendingJamPause.current =
-      !Boolean(jamState.isPlaying);
+      !Boolean(
+        jamState.isPlaying
+      );
+
+
+    /*
+     * IMPORTANT:
+     *
+     * We do not call playVideo() inside
+     * this effect.
+     *
+     * The playback effect below decides
+     * whether the guest should play or pause.
+     */
 
     void playSong(
       jamSong,
       [jamSong],
       {
         fromJam: true,
-        jamPosition: safePosition,
+        jamPosition:
+          safePosition,
       }
     );
 
   }, [
     jamConnected,
-    isHost,
     jamState?.currentSong,
     playSong,
   ]);
 
 
   // ==========================================================
-  // JAM GUEST SONG LOADING
+  // JAM SONG LOADING
   // ==========================================================
 
   useEffect(() => {
 
     if (
       !jamConnected ||
-      isHost ||
       !player ||
       !youtubeReadyRef.current
     ) {
       return;
     }
 
+
     const pendingSong =
       pendingJamSong.current;
+
 
     if (!pendingSong) {
       return;
     }
 
+
     const identity =
-      getSongIdentity(pendingSong);
+      getSongIdentity(
+        pendingSong
+      );
+
 
     const videoId =
       pendingSong.youtubeVideoId ??
       pendingSong.video_id ??
       youtubeIds[identity] ??
-      youtubeCacheRef.current.get(identity);
+      youtubeCacheRef.current.get(
+        identity
+      );
+
 
     if (!videoId) {
       return;
     }
 
+
     const position =
-      Number(pendingJamPosition.current);
+      Number(
+        pendingJamPosition.current
+      );
+
 
     try {
 
-      applyingJamEvent.current = true;
+      applyingJamEvent.current =
+        true;
 
-      // Jam is audio-only. YouTube is used as the hidden audio engine.
-      // Jam controls playback state only. The guest keeps its own volume.
+
       player.unMute();
-      player.setVolume(volumeRef.current);
+
+
+      player.setVolume(
+        volumeRef.current
+      );
+
 
       player.loadVideoById({
+
         videoId,
-        startSeconds: Number.isFinite(position)
-          ? Math.max(0, position)
-          : 0,
+
+        startSeconds:
+          Number.isFinite(position)
+            ? Math.max(
+                0,
+                position
+              )
+            : 0,
+
       });
 
-      pendingJamSong.current = null;
+
+      /*
+       * The song has now been handed to
+       * YouTube.
+       */
+
+      pendingJamSong.current =
+        null;
+
+
       pendingJamPlay.current =
-        Boolean(jamStateRef.current?.isPlaying);
+        Boolean(
+          jamStateRef.current?.isPlaying
+        );
+
+
       pendingJamPause.current =
-        !Boolean(jamStateRef.current?.isPlaying);
+        !Boolean(
+          jamStateRef.current?.isPlaying
+        );
+
+      // SONG_CHANGE and PLAY arrive separately. Give YouTube a moment
+      // to process loadVideoById(), then re-run synchronization using
+      // the latest Jam state rather than the stale state at load time.
+      setTimeout(() => {
+        setJamSyncVersion((value) => value + 1);
+      }, 250);
 
     } catch (error) {
 
@@ -2980,13 +2889,14 @@ cover_url:
         error
       );
 
-      applyingJamEvent.current = false;
+
+      applyingJamEvent.current =
+        false;
 
     }
 
   }, [
     jamConnected,
-    isHost,
     player,
     youtubeIds,
     jamState?.isPlaying,
@@ -2995,76 +2905,229 @@ cover_url:
 
 
   // ==========================================================
-  // JAM GUEST PLAYBACK SYNCHRONIZATION
+  // JAM PLAYBACK SYNCHRONIZATION
   // ==========================================================
+
+  /*
+   * THIS IS THE IMPORTANT FIX.
+   *
+   * We ask the YouTube player for its ACTUAL
+   * state instead of relying on React's
+   * isPlaying state.
+   *
+   * YouTube states:
+   *
+   * -1 = unstarted
+   *  0 = ended
+   *  1 = playing
+   *  2 = paused
+   *  3 = buffering
+   *  5 = video cued
+   */
 
   useEffect(() => {
 
     if (
       !jamConnected ||
-      isHost ||
       !player ||
       !youtubeReadyRef.current ||
-      !jamState ||
-      pendingJamSong.current
+      !jamState
     ) {
       return;
     }
 
+
+    /*
+     * If a Jam song hasn't reached the player
+     * yet, wait.
+     */
+
+    // A pending song is handled by the loading effect. Once that effect
+    // hands the song to YouTube it bumps jamSyncVersion, which re-runs
+    // this effect against the latest Jam state.
+    if (pendingJamSong.current) {
+      return;
+    }
+
+
     try {
 
       const targetPosition =
-        Number(jamState.position ?? 0);
+        Number(
+          jamState.position ?? 0
+        );
+
+
+      // ======================================================
+      // POSITION
+      // ======================================================
 
       if (
-        Number.isFinite(targetPosition) &&
-        Math.abs(
-          currentTimeRef.current -
+        Number.isFinite(
           targetPosition
-        ) > 2
+        )
       ) {
-        applyingJamEvent.current = true;
-        player.seekTo(
-          Math.max(0, targetPosition),
-          true
-        );
-      }
 
-      let playerState = -1;
+        const localPosition =
+          Number(
+            currentTimeRef.current
+          );
 
-      try {
-        playerState =
-          player.getPlayerState();
-      } catch {
-        playerState = -1;
-      }
 
-      if (jamState.isPlaying) {
+        /*
+         * Only correct meaningful drift.
+         *
+         * Small differences are normal.
+         */
 
         if (
-          playerState !== 1 &&
-          playerState !== 3
+          Math.abs(
+            localPosition -
+            targetPosition
+          ) > 2
         ) {
-          applyingJamEvent.current = true;
-          pendingJamPlay.current = true;
-          pendingJamPause.current = false;
 
-          // Jam controls playback state only. Keep guest volume local.
-          player.unMute();
-          player.setVolume(volumeRef.current);
-          player.playVideo();
+          applyingJamEvent.current =
+            true;
+
+
+          player.seekTo(
+            Math.max(
+              0,
+              targetPosition
+            ),
+            true
+          );
+
         }
 
-      } else {
+      }
+
+
+      // ======================================================
+      // PLAY
+      // ======================================================
+
+      if (
+        jamState.isPlaying
+      ) {
+
+        let playerState =
+          -1;
+
+
+        try {
+
+          playerState =
+            player.getPlayerState();
+
+        } catch {
+          playerState =
+            -1;
+        }
+
+
+        /*
+         * If the guest is already playing
+         * or buffering, leave it alone.
+         */
 
         if (
           playerState === 1 ||
           playerState === 3
         ) {
-          applyingJamEvent.current = true;
-          pendingJamPause.current = true;
-          pendingJamPlay.current = false;
+
+          return;
+
+        }
+
+
+        applyingJamEvent.current =
+          true;
+
+
+        pendingJamPlay.current =
+          true;
+
+
+        pendingJamPause.current =
+          false;
+
+
+        player.unMute();
+
+
+        player.setVolume(
+          volumeRef.current
+        );
+
+
+        player.playVideo();
+
+
+        return;
+
+      }
+
+
+      // ======================================================
+      // PAUSE
+      // ======================================================
+
+      /*
+       * IMPORTANT:
+       *
+       * We intentionally DO NOT use
+       * isPlayingRef.current here.
+       *
+       * React state can lag behind YouTube.
+       *
+       * We inspect the actual iframe state.
+       */
+
+      if (
+        !jamState.isPlaying
+      ) {
+
+        let playerState =
+          -1;
+
+
+        try {
+
+          playerState =
+            player.getPlayerState();
+
+        } catch {
+          playerState =
+            -1;
+        }
+
+
+        /*
+         * Pause if YouTube is currently
+         * playing or buffering.
+         */
+
+        if (
+          playerState === 1 ||
+          playerState === 3
+        ) {
+
+          applyingJamEvent.current =
+            true;
+
+
+          pendingJamPause.current =
+            true;
+
+
+          pendingJamPlay.current =
+            false;
+
+
           player.pauseVideo();
+
         }
 
       }
@@ -3072,20 +3135,22 @@ cover_url:
     } catch (error) {
 
       console.error(
-        "YOVI Jam guest synchronization failed:",
+        "YOVI Jam playback synchronization failed:",
         error
       );
 
-      applyingJamEvent.current = false;
+
+      applyingJamEvent.current =
+        false;
 
     }
 
   }, [
     jamConnected,
-    isHost,
     jamState?.isPlaying,
     jamState?.position,
     player,
+    jamSyncVersion,
   ]);
 
 
@@ -3095,10 +3160,6 @@ cover_url:
 
   const playNext =
     async () => {
-
-      if (jamConnected && !isHost) {
-        return;
-      }
 
       if (!queue.length) {
         return;
@@ -3176,10 +3237,6 @@ cover_url:
 
   const playPrevious =
     async () => {
-
-      if (jamConnected && !isHost) {
-        return;
-      }
 
       if (!queue.length) {
         return;
@@ -3310,38 +3367,6 @@ cover_url:
       true
     );
 
-    // If a guest joined before the YouTube iframe became ready, restore
-    // its local audio settings as soon as the player exists.
-    if (jamConnectedRef.current && !isHostRef.current && jamAudioUnlockedRef.current) {
-      try {
-        ytPlayer.unMute();
-        ytPlayer.setVolume(volumeRef.current);
-      } catch {}
-    }
-
-    // Complete a normal song click that happened before the iframe became ready.
-    const pendingInitialPlay =
-      autoplayAfterReadyRef.current;
-
-    if (pendingInitialPlay) {
-      autoplayAfterReadyRef.current = null;
-
-      try {
-        ytPlayer.unMute();
-        ytPlayer.setVolume(volumeRef.current);
-        ytPlayer.loadVideoById({
-          videoId: pendingInitialPlay.videoId,
-          startSeconds: 0,
-        });
-        ytPlayer.playVideo();
-      } catch (error) {
-        console.error(
-          "YOVI first-click playback failed:",
-          error
-        );
-      }
-    }
-
 
     try {
 
@@ -3375,6 +3400,43 @@ cover_url:
 
     }
 
+    // The Jam SONG_CHANGE and PLAY messages are asynchronous.
+    // Re-run synchronization once the YouTube iframe is actually ready.
+    if (jamConnectedRef.current) {
+      setJamSyncVersion((value) => value + 1);
+    }
+
+    // Preserve a normal user's first click if the iframe was not ready.
+    if (autoplayAfterReadyRef.current) {
+      autoplayAfterReadyRef.current = false;
+
+      const tryPendingPlay = () => {
+        const active = playerRef.current;
+        if (!active) {
+          return;
+        }
+
+        try {
+          active.unMute();
+          active.setVolume(volumeRef.current);
+          active.playVideo();
+        } catch {
+          // The IFrame API may still be establishing its message channel.
+        }
+      };
+
+      tryPendingPlay();
+
+      if (autoplayRetryTimerRef.current) {
+        clearTimeout(autoplayRetryTimerRef.current);
+      }
+
+      autoplayRetryTimerRef.current = setTimeout(() => {
+        autoplayRetryTimerRef.current = null;
+        tryPendingPlay();
+      }, 350);
+    }
+
   };
 
 
@@ -3397,31 +3459,6 @@ cover_url:
       setIsLoading(
         false
       );
-
-
-      if (jamPlayRetryTimerRef.current) {
-        clearTimeout(jamPlayRetryTimerRef.current);
-        jamPlayRetryTimerRef.current = null;
-      }
-
-
-      if (
-        jamConnected &&
-        !isHost &&
-        jamAudioUnlockedRef.current
-      ) {
-        try {
-          /*
-           * YouTube has now confirmed PLAYING. Only now do
-           * we restore audio for a guest that has already
-           * opted into Jam playback.
-           */
-          playerRef.current?.unMute?.();
-          playerRef.current?.setVolume?.(volumeRef.current);
-        } catch {
-          // Ignore until the iframe is ready.
-        }
-      }
 
 
       startProgressTracking();
@@ -3470,11 +3507,6 @@ cover_url:
         jamConnected &&
         isHost
       ) {
-
-        if (hostJamCommandRef.current === "PLAY") {
-          hostJamCommandRef.current = null;
-          return;
-        }
 
         /*
          * If this Play came from an incoming
@@ -3585,11 +3617,6 @@ cover_url:
         jamConnected &&
         isHost
       ) {
-
-        if (hostJamCommandRef.current === "PAUSE") {
-          hostJamCommandRef.current = null;
-          return;
-        }
 
         /*
          * A pause generated by Jam must NOT
@@ -3813,10 +3840,6 @@ cover_url:
 
   const togglePlay = () => {
 
-    if (jamConnected && !isHost) {
-      return;
-    }
-
     const activePlayer =
       playerRef.current;
 
@@ -3840,16 +3863,6 @@ cover_url:
         state === 1
       ) {
 
-        let position = currentTimeRef.current;
-        try {
-          position = activePlayer.getCurrentTime?.() ?? position;
-        } catch {}
-
-        if (jamConnected && isHost) {
-          hostJamCommandRef.current = "PAUSE";
-          jamPause(Number(position) || 0);
-        }
-
         activePlayer.pauseVideo();
 
         return;
@@ -3868,15 +3881,6 @@ cover_url:
         volumeRef.current
       );
 
-
-      if (jamConnected && isHost) {
-        let position = currentTimeRef.current;
-        try {
-          position = activePlayer.getCurrentTime?.() ?? position;
-        } catch {}
-        hostJamCommandRef.current = "PLAY";
-        jamPlay(Number(position) || 0);
-      }
 
       activePlayer.playVideo();
 
@@ -3900,10 +3904,6 @@ cover_url:
     value,
     options = {}
   ) => {
-
-    if (jamConnected && !isHost && options.fromJam !== true) {
-      return;
-    }
 
     const activePlayer =
       playerRef.current;
@@ -3969,8 +3969,9 @@ cover_url:
         options.fromJam !== true
       ) {
 
-        hostJamCommandRef.current = "SEEK";
-        jamSeek(time);
+        jamSeek(
+          time
+        );
 
       }
 
@@ -4056,10 +4057,6 @@ cover_url:
 
   const stopSong = () => {
 
-    if (jamConnected && !isHost) {
-      return;
-    }
-
     if (
       currentSongRef.current &&
       listeningStartedRef.current
@@ -4089,17 +4086,6 @@ cover_url:
 
     playRequestId.current += 1;
 
-    if (jamConnected && isHost) {
-      let position = currentTimeRef.current;
-      try {
-        position = playerRef.current?.getCurrentTime?.() ?? position;
-      } catch {}
-      hostJamCommandRef.current = "PAUSE";
-      jamPause(Number(position) || 0);
-    }
-
-    autoplayAfterReadyRef.current = null;
-
 
     pendingJamSong.current =
       null;
@@ -4115,12 +4101,6 @@ cover_url:
 
     applyingJamEvent.current =
       false;
-
-
-    if (jamPlayRetryTimerRef.current) {
-      clearTimeout(jamPlayRetryTimerRef.current);
-      jamPlayRetryTimerRef.current = null;
-    }
 
 
     if (
@@ -4218,7 +4198,6 @@ cover_url:
 
 
         playSong,
-        unlockJamPlayback,
 
         playNext,
 
