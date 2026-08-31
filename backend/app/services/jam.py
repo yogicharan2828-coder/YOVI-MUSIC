@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, Set
+from typing import Dict, Set, List
 
 
 @dataclass
@@ -17,6 +17,14 @@ class JamSession:
 
     participants: Set[str] = field(
         default_factory=set
+    )
+
+    # ==========================================================
+    # JAM QUEUE
+    # ==========================================================
+
+    queue: List[dict] = field(
+        default_factory=list
     )
 
     # ==========================================================
@@ -180,6 +188,87 @@ class JamManager:
 
 
     # ==========================================================
+    # QUEUE
+    # ==========================================================
+
+    def add_to_queue(
+        self,
+        session_id: str,
+        song: dict,
+    ) -> JamSession | None:
+
+        session = self.get_session(
+            session_id
+        )
+
+        if not session:
+            return None
+
+
+        if not song:
+            return session
+
+
+        session.queue.append(
+            song
+        )
+
+
+        return session
+
+
+    def remove_from_queue(
+        self,
+        session_id: str,
+        song_id: str,
+    ) -> JamSession | None:
+
+        session = self.get_session(
+            session_id
+        )
+
+        if not session:
+            return None
+
+
+        session.queue = [
+
+            song
+
+            for song in session.queue
+
+            if str(
+                song.get("id")
+            ) != str(
+                song_id
+            )
+
+        ]
+
+
+        return session
+
+
+    def clear_queue(
+        self,
+        session_id: str,
+    ) -> JamSession | None:
+
+        session = self.get_session(
+            session_id
+        )
+
+        if not session:
+            return None
+
+
+        session.queue.clear()
+
+
+        return session
+
+
+    # ==========================================================
     # UPDATE GUEST PERMISSIONS
     # ==========================================================
 
@@ -254,6 +343,16 @@ class JamManager:
 
             "position":
                 session.position,
+
+            "queue":
+                list(
+                    session.queue
+                ),
+
+            "queue_count":
+                len(
+                    session.queue
+                ),
 
             "participants":
                 list(

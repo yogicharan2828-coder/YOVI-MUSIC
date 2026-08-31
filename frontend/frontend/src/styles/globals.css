@@ -9808,6 +9808,10 @@ body,
    JAM SETTINGS BUTTON
    ========================================================== */
 
+/* ==========================================================
+   JAM SETTINGS BUTTON
+   ========================================================== */
+
 .jam-settings-button {
   width: 38px;
   height: 38px;
@@ -9854,10 +9858,9 @@ body,
   justify-content: center;
 
   width: 100%;
-  height: 100%;
+  height: 100dvh;
 
   padding: 24px;
-
   box-sizing: border-box;
 
   background: rgba(0, 0, 0, 0.72);
@@ -9865,7 +9868,13 @@ body,
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 
+  /*
+   * Prevent the page behind the modal from
+   * participating in the touch scroll.
+   */
   overflow: hidden;
+
+  touch-action: none;
 }
 
 
@@ -9874,15 +9883,14 @@ body,
    ========================================================== */
 
 .jam-settings-panel {
+  position: relative;
+
   width: min(100%, 520px);
 
   /*
-   * IMPORTANT:
-   * Include padding + border inside the height.
-   * This prevents the panel from becoming taller
-   * than the available viewport.
+   * Definite height + max-height makes this a
+   * predictable scrolling container.
    */
-
   height: min(
     680px,
     calc(100dvh - 48px)
@@ -9892,10 +9900,19 @@ body,
 
   box-sizing: border-box;
 
-  overflow-y: auto;
   overflow-x: hidden;
+  overflow-y: auto;
 
-  flex: 0 1 auto;
+  /*
+   * CRITICAL:
+   * Allow vertical touch gestures inside the panel.
+   */
+  touch-action: pan-y;
+
+  -webkit-overflow-scrolling: touch;
+
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
 
   background:
     linear-gradient(
@@ -9916,9 +9933,8 @@ body,
 
   padding: 28px;
 
-  overscroll-behavior: contain;
-
   scrollbar-width: thin;
+
   scrollbar-color:
     rgba(255, 255, 255, 0.12)
     transparent;
@@ -9954,7 +9970,6 @@ body,
 
 .jam-settings-header .jam-eyebrow {
   display: block;
-
   margin-bottom: 4px;
 }
 
@@ -9967,6 +9982,7 @@ body,
     serif;
 
   font-size: 28px;
+
   line-height: 1.15;
 
   font-weight: 600;
@@ -10056,6 +10072,7 @@ body,
   display: flex;
 
   align-items: center;
+
   justify-content: space-between;
 
   gap: 24px;
@@ -10074,6 +10091,12 @@ body,
     rgba(255, 255, 255, 0.07);
 
   border-radius: 16px;
+
+  /*
+   * Keep touch scrolling available if the
+   * finger starts on a setting row.
+   */
+  touch-action: pan-y;
 }
 
 .jam-setting-row:last-child {
@@ -10130,6 +10153,8 @@ body,
   background: transparent;
 
   cursor: pointer;
+
+  touch-action: manipulation;
 }
 
 .jam-toggle-track {
@@ -10259,31 +10284,56 @@ body,
   .jam-settings-overlay {
     align-items: flex-end;
 
+    width: 100%;
+    height: 100dvh;
+
     padding: 0;
 
-    height: 100dvh;
+    overflow: hidden;
+
+    touch-action: none;
   }
 
 
   .jam-settings-panel {
     width: 100%;
 
-    height: auto;
+    /*
+     * IMPORTANT:
+     * Use a definite height so the panel itself
+     * becomes the scroll container.
+     */
+    height: 88dvh;
 
     max-height: 88dvh;
 
+    min-height: 0;
+
     box-sizing: border-box;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    touch-action: pan-y;
+
+    -webkit-overflow-scrolling: touch;
+
+    overscroll-behavior-y: contain;
 
     border-radius:
       24px 24px 0 0;
 
+    /*
+     * Extra bottom space prevents the final
+     * settings content from being hidden behind
+     * the fixed YOVI player.
+     */
     padding:
-      24px 20px
+      24px
+      20px
       calc(
-        24px +
-        env(
-          safe-area-inset-bottom
-        )
+        120px +
+        env(safe-area-inset-bottom)
       );
   }
 
@@ -10307,6 +10357,8 @@ body,
     gap: 16px;
 
     padding: 16px;
+
+    touch-action: pan-y;
   }
 
 
@@ -10326,6 +10378,7 @@ body,
     padding:
       13px 15px;
   }
+
 }
 
 
@@ -10336,15 +10389,19 @@ body,
 @media (max-width: 420px) {
 
   .jam-settings-panel {
+    /*
+     * Slightly taller on very small screens.
+     */
+    height: 90dvh;
+
     max-height: 90dvh;
 
     padding:
-      20px 16px
+      20px
+      16px
       calc(
-        20px +
-        env(
-          safe-area-inset-bottom
-        )
+        120px +
+        env(safe-area-inset-bottom)
       );
   }
 
@@ -10375,6 +10432,8 @@ body,
     gap: 12px;
 
     padding: 14px;
+
+    touch-action: pan-y;
   }
 
 
@@ -10402,4 +10461,5 @@ body,
     transform:
       translateX(20px);
   }
+
 }

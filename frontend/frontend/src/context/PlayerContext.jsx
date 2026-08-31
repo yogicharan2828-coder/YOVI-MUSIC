@@ -2255,24 +2255,45 @@ if (
         // JAM HOST
         // ------------------------------------------------------
 
-        if (
-          jamConnected &&
-          isHost &&
-          !fromJam
-        ) {
+       if (
+  jamConnected &&
+  !fromJam
+) {
 
-          lastJamSongId.current =
-            getSongIdentity(
-              resolvedSong
-            );
+  /*
+   * Host can always change the Jam song.
+   *
+   * Guest can change the Jam song only when
+   * Song Control permission is enabled.
+   */
+
+  const guestSongChangeAllowed =
+    Boolean(
+      jamStateRef.current?.allowGuestSongChange ??
+      jamStateRef.current?.allow_guest_song_change ??
+      false
+    );
 
 
-          jamSongChange(
-            resolvedSong,
-            0
-          );
+  if (
+    isHost ||
+    guestSongChangeAllowed
+  ) {
 
-        }
+    lastJamSongId.current =
+      getSongIdentity(
+        resolvedSong
+      );
+
+
+    jamSongChange(
+      resolvedSong,
+      0
+    );
+
+  }
+
+}
 
 
         return true;
@@ -3184,7 +3205,7 @@ if (
     ) {
       return;
     }
-
+   
 
     const jamSong =
       jamState.currentSong;
@@ -3426,7 +3447,6 @@ if (
     ) {
       return;
     }
-
 
     const pendingSong =
       pendingJamSong.current;
@@ -4107,118 +4127,140 @@ if (
   // YOUTUBE PLAY
   // ==========================================================
 
-  const handlePlayerPlay =
-    () => {
+ const handlePlayerPlay =
+  () => {
 
-      setIsPlaying(
-        true
-      );
+    setIsPlaying(
+      true
+    );
 
 
-      isPlayingRef.current =
+    isPlayingRef.current =
+      true;
+
+
+    setIsLoading(
+      false
+    );
+
+
+    startProgressTracking();
+
+
+    const activeSong =
+      currentSongRef.current;
+
+
+    if (
+      activeSong &&
+      !listeningStartedRef.current
+    ) {
+
+      listeningSongRef.current =
+        activeSong;
+
+
+      listeningStartedRef.current =
         true;
 
 
-      setIsLoading(
-        false
+      lastListeningProgressRef.current =
+        0;
+
+
+      lastListeningPauseRef.current =
+        0;
+
+
+      sendListeningEvent(
+        "play",
+        activeSong,
+        currentTimeRef.current,
+        durationRef.current
       );
 
+    }
 
-      startProgressTracking();
+
+    // ========================================================
+    // JAM PLAY
+    // ========================================================
+
+    if (
+      jamConnected &&
+      !isHost
+    ) {
+
+      /*
+       * Guest playback is already handled by togglePlay().
+       * The callback must NOT send another PLAY event here,
+       * otherwise we create:
+       *
+       * Guest PLAY
+       * -> Jam PLAY
+       * -> YouTube PLAY callback
+       * -> Jam PLAY
+       * -> infinite loop
+       */
+
+      return;
+
+    }
 
 
-      const activeSong =
-        currentSongRef.current;
+    if (
+      jamConnected &&
+      isHost
+    ) {
 
+      /*
+       * If this Play came from an incoming Jam event,
+       * NEVER broadcast it back into Jam.
+       */
 
       if (
-        activeSong &&
-        !listeningStartedRef.current
+        pendingJamPlay.current ||
+        applyingJamEvent.current
       ) {
 
-        listeningSongRef.current =
-          activeSong;
+        pendingJamPlay.current =
+          false;
 
 
-        listeningStartedRef.current =
-          true;
+        applyingJamEvent.current =
+          false;
 
 
-        lastListeningProgressRef.current =
-          0;
-
-
-        lastListeningPauseRef.current =
-          0;
-
-
-        sendListeningEvent(
-          "play",
-          activeSong,
-          currentTimeRef.current,
-          durationRef.current
-        );
+        return;
 
       }
 
 
-      // ------------------------------------------------------
-      // JAM HOST
-      // ------------------------------------------------------
-
-      if (
-        jamConnected &&
-        isHost
-      ) {
-
-        /*
-         * If this Play came from an incoming
-         * Jam event, NEVER broadcast it again.
-         */
-
-        if (
-          pendingJamPlay.current ||
-          applyingJamEvent.current
-        ) {
-
-          pendingJamPlay.current =
-            false;
+      let position =
+        currentTimeRef.current;
 
 
-          applyingJamEvent.current =
-            false;
+      try {
 
-
-          return;
-
-        }
-
-
-        let position =
+        position =
+          playerRef.current
+            ?.getCurrentTime?.() ??
           currentTimeRef.current;
 
-
-        try {
-
-          position =
-            playerRef.current
-              ?.getCurrentTime?.() ??
-            currentTimeRef.current;
-
-        } catch {
-          // Keep current position.
-        }
-
-
-        jamPlay(
-          Number(
-            position
-          ) || 0
-        );
-
+      } catch {
+        // Keep current position.
       }
 
-    };
+
+      jamPlay(
+        Number(
+          position
+        ) || 0
+      );
+
+    }
+
+  };
 
 
   // ==========================================================
@@ -4226,126 +4268,143 @@ if (
   // ==========================================================
 
   const handlePlayerPause =
-    () => {
+  () => {
 
-      setIsPlaying(
-        false
-      );
-
-
-      isPlayingRef.current =
-        false;
+    setIsPlaying(
+      false
+    );
 
 
-      stopProgressTracking();
+    isPlayingRef.current =
+      false;
+
+
+    stopProgressTracking();
+
+
+    if (
+      currentSongRef.current &&
+      listeningStartedRef.current
+    ) {
+
+      const pausePosition =
+        currentTimeRef.current;
 
 
       if (
-        currentSongRef.current &&
-        listeningStartedRef.current
+        Math.abs(
+          pausePosition -
+          lastListeningPauseRef.current
+        ) > 1
       ) {
 
-        const pausePosition =
-          currentTimeRef.current;
+        lastListeningPauseRef.current =
+          pausePosition;
 
 
-        if (
-          Math.abs(
-            pausePosition -
-            lastListeningPauseRef.current
-          ) > 1
-        ) {
-
-          lastListeningPauseRef.current =
-            pausePosition;
-
-
-          sendListeningEvent(
-            "pause",
-            currentSongRef.current,
-            pausePosition,
-            durationRef.current
-          );
-
-        }
-
-      }
-
-
-      // ------------------------------------------------------
-      // JAM HOST
-      // ------------------------------------------------------
-
-      if (
-        jamConnected &&
-        isHost
-      ) {
-
-        /*
-         * A pause generated by Jam must NOT
-         * be sent back into Jam.
-         */
-
-        if (
-          pendingJamPause.current
-        ) {
-
-          pendingJamPause.current =
-            false;
-
-
-          applyingJamEvent.current =
-            false;
-
-
-          return;
-
-        }
-
-
-        /*
-         * A playback event caused by an incoming
-         * Jam operation must never be rebroadcast.
-         */
-
-        if (
-          applyingJamEvent.current
-        ) {
-
-          applyingJamEvent.current =
-            false;
-
-
-          return;
-
-        }
-
-
-        let position =
-          currentTimeRef.current;
-
-
-        try {
-
-          position =
-            playerRef.current
-              ?.getCurrentTime?.() ??
-            currentTimeRef.current;
-
-        } catch {
-          // Keep current position.
-        }
-
-
-        jamPause(
-          Number(
-            position
-          ) || 0
+        sendListeningEvent(
+          "pause",
+          currentSongRef.current,
+          pausePosition,
+          durationRef.current
         );
 
       }
 
-    };
+    }
+
+
+    // ========================================================
+    // JAM PAUSE
+    // ========================================================
+
+    if (
+      jamConnected &&
+      !isHost
+    ) {
+
+      /*
+       * Guest pause was already sent through jamPause()
+       * by togglePlay().
+       *
+       * Do NOT send another PAUSE from the YouTube callback.
+       */
+
+      return;
+
+    }
+
+
+    if (
+      jamConnected &&
+      isHost
+    ) {
+
+      /*
+       * A pause generated by an incoming Jam event
+       * must NOT be broadcast back into Jam.
+       */
+
+      if (
+        pendingJamPause.current
+      ) {
+
+        pendingJamPause.current =
+          false;
+
+
+        applyingJamEvent.current =
+          false;
+
+
+        return;
+
+      }
+
+
+      /*
+       * A playback event caused by an incoming Jam
+       * operation must never be rebroadcast.
+       */
+
+      if (
+        applyingJamEvent.current
+      ) {
+
+        applyingJamEvent.current =
+          false;
+
+
+        return;
+
+      }
+
+
+      let position =
+        currentTimeRef.current;
+
+
+      try {
+
+        position =
+          playerRef.current
+            ?.getCurrentTime?.() ??
+          currentTimeRef.current;
+
+      } catch {
+        // Keep current position.
+      }
+
+
+      jamPause(
+        Number(
+          position
+        ) || 0
+      );
+
+    }
+
+  };
 
 
   // ==========================================================
@@ -4503,60 +4562,187 @@ if (
 
   const togglePlay = () => {
 
-    const activePlayer =
-      playerRef.current;
+  // ========================================================
+  // GUEST PERMISSION
+  // ========================================================
+
+  if (
+    jamConnectedRef.current &&
+    !isHostRef.current &&
+    !Boolean(
+      jamStateRef.current?.allowGuestPlayback ??
+      jamStateRef.current?.allow_guest_playback
+    )
+  ) {
+
+    console.log(
+      "[YOVI JAM] Guest play/pause control blocked"
+    );
+
+    return;
+
+  }
 
 
-    if (!activePlayer) {
-      return;
-    }
+  const activePlayer =
+    playerRef.current;
 
 
-    try {
+  if (!activePlayer) {
+    return;
+  }
 
-      const state =
-        activePlayer.getPlayerState();
 
+  try {
+
+    const state =
+      activePlayer.getPlayerState();
+
+
+    // ======================================================
+    // PAUSE
+    // ======================================================
+
+    if (
+      state === 1 ||
+      state === 3
+    ) {
 
       /*
-       * Playing.
+       * If this is a Jam guest and playback permission
+       * is enabled, send the PAUSE command through Jam.
+       *
+       * Do NOT rely on handlePlayerPause() to broadcast it,
+       * because that handler currently only broadcasts host
+       * actions.
        */
 
       if (
-        state === 1
-      ) {
+  jamConnectedRef.current &&
+  !isHostRef.current
+) {
 
-        activePlayer.pauseVideo();
-
-        return;
-
-      }
+  let position =
+    currentTimeRef.current;
 
 
-      /*
-       * Paused / unstarted / cued.
-       */
+  try {
 
-      activePlayer.unMute();
+    position =
+      activePlayer.getCurrentTime?.() ??
+      currentTimeRef.current;
+
+  } catch {
+    // Keep current position.
+  }
 
 
-      activePlayer.setVolume(
-        volumeRef.current
-      );
+  /*
+   * Pause the guest locally first.
+   *
+   * handlePlayerPause() knows this is a guest and
+   * therefore will NOT rebroadcast the callback.
+   */
+
+  activePlayer.pauseVideo();
 
 
-      activePlayer.playVideo();
+  /*
+   * Then send the authoritative Jam PAUSE
+   * to the host.
+   */
 
-    } catch (error) {
+  jamPause(
+    Number(position) || 0
+  );
 
-      console.error(
-        "Playback control failed:",
-        error
-      );
+
+  return;
+
+}
+
+
+      activePlayer.pauseVideo();
+
+      return;
 
     }
 
-  };
+
+    // ======================================================
+    // PLAY
+    // ======================================================
+
+    activePlayer.unMute();
+
+
+    activePlayer.setVolume(
+      volumeRef.current
+    );
+
+
+    /*
+     * If this is a Jam guest and playback permission
+     * is enabled, send the PLAY command through Jam.
+     */
+
+    if (
+  jamConnectedRef.current &&
+  !isHostRef.current
+) {
+
+  let position =
+    currentTimeRef.current;
+
+
+  try {
+
+    position =
+      activePlayer.getCurrentTime?.() ??
+      currentTimeRef.current;
+
+  } catch {
+    // Keep current position.
+  }
+
+
+  /*
+   * Play the guest locally first.
+   *
+   * handlePlayerPlay() will NOT rebroadcast because
+   * this is a guest.
+   */
+
+  activePlayer.playVideo();
+
+
+  /*
+   * Then send the authoritative Jam PLAY
+   * to the host.
+   */
+
+  jamPlay(
+    Number(position) || 0
+  );
+
+
+  return;
+
+}
+
+
+    activePlayer.playVideo();
+
+  } catch (error) {
+
+    console.error(
+      "Playback control failed:",
+      error
+    );
+
+  }
+
+};
 
 
   // ==========================================================

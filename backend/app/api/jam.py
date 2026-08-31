@@ -26,10 +26,6 @@ class CreateJamRequest(BaseModel):
 
     host_id: str
 
-    # ------------------------------------------------------
-    # INITIAL PLAYBACK STATE
-    # ------------------------------------------------------
-
     current_song: dict | None = None
 
     is_playing: bool = False
@@ -170,10 +166,6 @@ async def create_jam(
     )
 
 
-    # ------------------------------------------------------
-    # CREATE EMPTY SESSION
-    # ------------------------------------------------------
-
     session = jam_manager.create_session(
         session_id=session_id,
         host_id=request.host_id,
@@ -182,18 +174,6 @@ async def create_jam(
 
     # ------------------------------------------------------
     # INITIAL PLAYBACK STATE
-    # ------------------------------------------------------
-    #
-    # The host may already be playing a song when Jam starts.
-    #
-    # We store that state directly in the new Jam session.
-    #
-    # IMPORTANT:
-    #
-    # We do NOT send a SONG_CHANGE event here.
-    #
-    # The guest will receive this state through SESSION_STATE
-    # when connecting to the Jam.
     # ------------------------------------------------------
 
     if request.current_song is not None:
@@ -220,10 +200,6 @@ async def create_jam(
 
         )
 
-
-    # ------------------------------------------------------
-    # GET UPDATED SESSION
-    # ------------------------------------------------------
 
     session = jam_manager.get_session(
         session_id
@@ -510,17 +486,14 @@ async def jam_websocket(
                 event.get(
                     "type"
                 )
-                )
-           
+            )
+
+
             # ==================================================
             # SETTINGS UPDATE
             # ==================================================
 
             if event_type == "SETTINGS_UPDATE":
-
-                # ------------------------------------------------
-                # ONLY HOST CAN CHANGE JAM SETTINGS
-                # ------------------------------------------------
 
                 if not is_host:
 
@@ -538,10 +511,6 @@ async def jam_websocket(
 
                     continue
 
-
-                # ------------------------------------------------
-                # READ PERMISSIONS
-                # ------------------------------------------------
 
                 allow_guest_playback = (
                     event.get(
@@ -563,10 +532,6 @@ async def jam_websocket(
                     )
                 )
 
-
-                # ------------------------------------------------
-                # UPDATE SESSION
-                # ------------------------------------------------
 
                 updated_session = (
                     jam_manager.update_permissions(
@@ -604,21 +569,21 @@ async def jam_websocket(
                     continue
 
 
-                # ------------------------------------------------
-                # BROADCAST UPDATED STATE
-                # ------------------------------------------------
-
                 await connection_manager.broadcast(
                     session_id,
                     {
 
                         "type":
-                            "SESSION_STATE",
+                            "JAM_SETTINGS",
 
-                        "session":
-                            jam_manager.serialize(
-                                updated_session
-                            ),
+                        "allow_guest_playback":
+                            updated_session.allow_guest_playback,
+
+                        "allow_guest_song_change":
+                            updated_session.allow_guest_song_change,
+
+                        "allow_guest_queue":
+                            updated_session.allow_guest_queue,
 
                     },
                 )
@@ -837,6 +802,154 @@ async def jam_websocket(
 
                     exclude_user_id=
                         user_id,
+                )
+
+
+            # ==================================================
+            # QUEUE ADD
+            # ==================================================
+
+            elif event_type == "QUEUE_ADD":
+
+                if (
+                    not is_host
+                    and not session.allow_guest_queue
+                ):
+
+                    continue
+
+
+                song = event.get(
+                    "song"
+                )
+
+
+                if not song:
+
+                    continue
+
+
+                updated_session = (
+                    jam_manager.add_to_queue(
+                        session_id,
+                        song
+                    )
+                )
+
+
+                if not updated_session:
+
+                    continue
+
+
+                await connection_manager.broadcast(
+                    session_id,
+                    {
+
+                        "type":
+                            "QUEUE_UPDATE",
+
+                        "queue":
+                            list(
+                                updated_session.queue
+                            ),
+
+                    },
+                )
+
+
+            # ==================================================
+            # QUEUE REMOVE
+            # ==================================================
+
+            elif event_type == "QUEUE_REMOVE":
+
+                if (
+                    not is_host
+                    and not session.allow_guest_queue
+                ):
+
+                    continue
+
+
+                song_id = event.get(
+                    "song_id"
+                )
+
+
+                if song_id is None:
+
+                    continue
+
+
+                updated_session = (
+                    jam_manager.remove_from_queue(
+                        session_id,
+                        str(song_id)
+                    )
+                )
+
+
+                if not updated_session:
+
+                    continue
+
+
+                await connection_manager.broadcast(
+                    session_id,
+                    {
+
+                        "type":
+                            "QUEUE_UPDATE",
+
+                        "queue":
+                            list(
+                                updated_session.queue
+                            ),
+
+                    },
+                )
+
+
+            # ==================================================
+            # QUEUE CLEAR
+            # ==================================================
+
+            elif event_type == "QUEUE_CLEAR":
+
+                if (
+                    not is_host
+                    and not session.allow_guest_queue
+                ):
+
+                    continue
+
+
+                updated_session = (
+                    jam_manager.clear_queue(
+                        session_id
+                    )
+                )
+
+
+                if not updated_session:
+
+                    continue
+
+
+                await connection_manager.broadcast(
+                    session_id,
+                    {
+
+                        "type":
+                            "QUEUE_UPDATE",
+
+                        "queue":
+                            list(
+                                updated_session.queue
+                            ),
+
+                    },
                 )
 
 

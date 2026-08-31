@@ -18,6 +18,8 @@ const INITIAL_JAM_STATE = {
   isPlaying: false,
   position: 0,
 
+  queue: [],
+
   allowGuestPlayback: false,
   allowGuestSongChange: false,
   allowGuestQueue: false,
@@ -134,14 +136,16 @@ export function JamProvider({
           return;
 
         }
-        
-console.log(
-  "[YOVI JAM] WebSocket URL:",
-  getJamWebSocketUrl(
-    newSessionId,
-    newUserId
-  )
-);
+
+
+        console.log(
+          "[YOVI JAM] WebSocket URL:",
+          getJamWebSocketUrl(
+            newSessionId,
+            newUserId
+          )
+        );
+
 
         const socket =
           new WebSocket(
@@ -237,6 +241,14 @@ console.log(
                 );
 
 
+              const incomingQueue =
+                Array.isArray(
+                  session.queue
+                )
+                  ? session.queue
+                  : [];
+
+
               const incomingGuestPlayback =
                 Boolean(
                   session.allow_guest_playback
@@ -270,6 +282,9 @@ console.log(
                     ? incomingPosition
                     : 0,
 
+                queue:
+                  incomingQueue,
+
                 allowGuestPlayback:
                   incomingGuestPlayback,
 
@@ -300,6 +315,7 @@ console.log(
               console.log(
                 "YOVI Jam initial state:",
                 {
+
                   song:
                     incomingSong,
 
@@ -309,6 +325,9 @@ console.log(
                   position:
                     incomingPosition,
 
+                  queue:
+                    incomingQueue,
+
                   allowGuestPlayback:
                     incomingGuestPlayback,
 
@@ -317,6 +336,7 @@ console.log(
 
                   allowGuestQueue:
                     incomingGuestQueue,
+
                 }
               );
 
@@ -379,6 +399,67 @@ console.log(
                       id !==
                       message.user_id
                   )
+              );
+
+
+              return;
+
+            }
+
+
+            // ==================================================
+            // JAM SETTINGS
+            // ==================================================
+
+            if (
+              message.type ===
+              "JAM_SETTINGS"
+            ) {
+
+              setJamState(
+                (previous) => ({
+
+                  ...previous,
+
+                  allowGuestPlayback:
+                    Boolean(
+                      message.allow_guest_playback
+                    ),
+
+                  allowGuestSongChange:
+                    Boolean(
+                      message.allow_guest_song_change
+                    ),
+
+                  allowGuestQueue:
+                    Boolean(
+                      message.allow_guest_queue
+                    ),
+
+                })
+              );
+
+
+              console.log(
+                "[YOVI JAM] Settings updated:",
+                {
+
+                  allowGuestPlayback:
+                    Boolean(
+                      message.allow_guest_playback
+                    ),
+
+                  allowGuestSongChange:
+                    Boolean(
+                      message.allow_guest_song_change
+                    ),
+
+                  allowGuestQueue:
+                    Boolean(
+                      message.allow_guest_queue
+                    ),
+
+                }
               );
 
 
@@ -553,6 +634,57 @@ console.log(
 
             }
 
+
+            // ==================================================
+            // QUEUE UPDATE
+            // ==================================================
+
+            if (
+              message.type ===
+              "QUEUE_UPDATE"
+            ) {
+
+              const incomingQueue =
+                Array.isArray(
+                  message.queue
+                )
+                  ? message.queue
+                  : [];
+
+
+              setJamState(
+                (previous) => ({
+
+                  ...previous,
+
+                  queue:
+                    incomingQueue,
+
+                })
+              );
+
+
+              console.log(
+                "[YOVI JAM] Queue updated:",
+                incomingQueue
+              );
+
+
+              return;
+
+            }
+
+
+            // ==================================================
+            // UNKNOWN EVENT
+            // ==================================================
+
+            console.warn(
+              "[YOVI JAM] Unknown event:",
+              message
+            );
+
+
           } catch (error) {
 
             console.error(
@@ -698,18 +830,6 @@ console.log(
   // ==========================================================
   // UPDATE JAM PERMISSIONS
   // ==========================================================
-
-  /*
-   * IMPORTANT:
-   *
-   * Permission updates are now PARTIAL.
-   *
-   * Only the permission explicitly supplied by the caller
-   * is changed.
-   *
-   * This prevents one toggle from accidentally resetting
-   * another toggle because of stale React state.
-   */
 
   const updateJamPermissions =
     useCallback(
@@ -940,6 +1060,152 @@ console.log(
 
 
   // ==========================================================
+  // JAM QUEUE — ADD
+  // ==========================================================
+
+  const jamQueueAdd =
+    useCallback(
+      (
+        song
+      ) => {
+
+        if (
+          !song
+        ) {
+
+          return false;
+
+        }
+
+
+        if (
+          !isHost &&
+          !jamState.allowGuestQueue
+        ) {
+
+          console.warn(
+            "[YOVI JAM] Guest queue permission denied"
+          );
+
+          return false;
+
+        }
+
+
+        return sendEvent({
+
+          type:
+            "QUEUE_ADD",
+
+          song,
+
+        });
+
+      },
+      [
+        isHost,
+        jamState.allowGuestQueue,
+        sendEvent,
+      ]
+    );
+
+
+  // ==========================================================
+  // JAM QUEUE — REMOVE
+  // ==========================================================
+
+  const jamQueueRemove =
+    useCallback(
+      (
+        songId
+      ) => {
+
+        if (
+          songId ===
+          undefined ||
+          songId ===
+          null
+        ) {
+
+          return false;
+
+        }
+
+
+        if (
+          !isHost &&
+          !jamState.allowGuestQueue
+        ) {
+
+          console.warn(
+            "[YOVI JAM] Guest queue permission denied"
+          );
+
+          return false;
+
+        }
+
+
+        return sendEvent({
+
+          type:
+            "QUEUE_REMOVE",
+
+          song_id:
+            String(
+              songId
+            ),
+
+        });
+
+      },
+      [
+        isHost,
+        jamState.allowGuestQueue,
+        sendEvent,
+      ]
+    );
+
+
+  // ==========================================================
+  // JAM QUEUE — CLEAR
+  // ==========================================================
+
+  const jamQueueClear =
+    useCallback(
+      () => {
+
+        if (
+          !isHost &&
+          !jamState.allowGuestQueue
+        ) {
+
+          console.warn(
+            "[YOVI JAM] Guest queue permission denied"
+          );
+
+          return false;
+
+        }
+
+
+        return sendEvent({
+
+          type:
+            "QUEUE_CLEAR",
+
+        });
+
+      },
+      [
+        isHost,
+        jamState.allowGuestQueue,
+        sendEvent,
+      ]
+    );
+
+
+  // ==========================================================
   // CLEANUP
   // ==========================================================
 
@@ -992,6 +1258,12 @@ console.log(
     jamSeek,
 
     jamSongChange,
+
+    jamQueueAdd,
+
+    jamQueueRemove,
+
+    jamQueueClear,
 
     updateJamPermissions,
 
