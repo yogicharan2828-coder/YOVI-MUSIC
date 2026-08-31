@@ -2,6 +2,7 @@ import {
   Check,
   Copy,
   LogOut,
+  Settings,
   Users,
   X,
 } from "lucide-react";
@@ -19,8 +20,10 @@ import {
   usePlayer,
 } from "../../context/PlayerContext";
 
-
 import API_BASE_URL from "../../config/api";
+
+import JamSettings from "./JamSettings";
+
 
 function ChartuneJamMark({
   size = 28,
@@ -113,12 +116,13 @@ function JamPanel({
     connectToJam,
     disconnectFromJam,
     jamState,
-    jamSongChange,
   } = useJam();
 
 
   const {
     currentSong,
+    currentTime,
+    isPlaying,
     unlockJamPlayback,
   } = usePlayer();
 
@@ -126,13 +130,24 @@ function JamPanel({
   const [joinCode, setJoinCode] =
     useState("");
 
+
   const [loading, setLoading] =
     useState(false);
+
 
   const [error, setError] =
     useState("");
 
+
   const [copied, setCopied] =
+    useState(false);
+
+
+  // ==========================================================
+  // JAM SETTINGS UI STATE
+  // ==========================================================
+
+  const [settingsOpen, setSettingsOpen] =
     useState(false);
 
 
@@ -204,6 +219,30 @@ function JamPanel({
             body: JSON.stringify({
               host_id:
                 currentUserId,
+
+              current_song:
+                jamStartingSong ||
+                currentSong ||
+                null,
+
+              is_playing:
+                Boolean(
+                  isPlaying
+                ),
+
+              position:
+                Number.isFinite(
+                  Number(
+                    currentTime
+                  )
+                )
+                  ? Math.max(
+                      0,
+                      Number(
+                        currentTime
+                      )
+                    )
+                  : 0,
             }),
           }
         );
@@ -259,52 +298,6 @@ function JamPanel({
     }
 
   };
-
-
-  // ==========================================================
-  // SYNC INITIAL SONG INTO NEW JAM
-  // ==========================================================
-
-  useEffect(() => {
-
-    if (
-      !sessionId ||
-      !isConnected ||
-      !isHost ||
-      !jamStartingSong
-    ) {
-
-      return;
-
-    }
-
-
-    /*
-     * Only initialize the Jam song when the
-     * Jam doesn't already have one.
-     */
-
-    if (
-      jamState?.currentSong
-    ) {
-
-      return;
-
-    }
-
-
-    jamSongChange(
-      jamStartingSong,
-      0
-    );
-
-  }, [
-    sessionId,
-    isConnected,
-    isHost,
-    jamStartingSong,
-    jamState?.currentSong,
-  ]);
 
 
   // ==========================================================
@@ -551,20 +544,54 @@ function JamPanel({
             </div>
 
 
-            <button
-              className="jam-close"
-              onClick={onClose}
-              aria-label="Close Jam"
-            >
+            {/* =================================================
+                HEADER ACTIONS
+            ================================================= */}
 
-              <X size={19} />
+            <div className="jam-header-actions">
 
-            </button>
+              {isHost && (
+
+                <button
+                  className="jam-settings-button"
+                  onClick={() =>
+                    setSettingsOpen(true)
+                  }
+                  aria-label="Jam settings"
+                  title="Jam settings"
+                  type="button"
+                >
+
+                  <Settings
+                    size={18}
+                  />
+
+                </button>
+
+              )}
+
+
+              <button
+                className="jam-close"
+                onClick={onClose}
+                aria-label="Close Jam"
+                type="button"
+              >
+
+                <X
+                  size={19}
+                />
+
+              </button>
+
+            </div>
 
           </div>
 
 
-          {/* CURRENT SONG */}
+          {/* ==================================================
+              CURRENT SONG
+          ================================================== */}
 
           <div className="jam-now-playing">
 
@@ -615,7 +642,9 @@ function JamPanel({
           </div>
 
 
-          {/* LIVE */}
+          {/* ==================================================
+              LIVE
+          ================================================== */}
 
           <div className="jam-live-status">
 
@@ -640,7 +669,9 @@ function JamPanel({
 
             <div className="jam-live-right">
 
-              <Users size={14} />
+              <Users
+                size={14}
+              />
 
               <span>
                 {participants.length}
@@ -655,7 +686,9 @@ function JamPanel({
           </div>
 
 
-          {/* SESSION */}
+          {/* ==================================================
+              SESSION
+          ================================================== */}
 
           <div className="jam-session-card">
 
@@ -680,12 +713,17 @@ function JamPanel({
                 onClick={copyCode}
                 aria-label="Copy Jam code"
                 title="Copy Jam code"
+                type="button"
               >
 
                 {copied ? (
-                  <Check size={17} />
+                  <Check
+                    size={17}
+                  />
                 ) : (
-                  <Copy size={17} />
+                  <Copy
+                    size={17}
+                  />
                 )}
 
               </button>
@@ -701,7 +739,9 @@ function JamPanel({
           </div>
 
 
-          {/* PARTICIPANTS */}
+          {/* ==================================================
+              PARTICIPANTS
+          ================================================== */}
 
           <div className="jam-participants">
 
@@ -797,20 +837,40 @@ function JamPanel({
           </div>
 
 
-          {/* LEAVE */}
+          {/* ==================================================
+              LEAVE
+          ================================================== */}
 
           <button
             className="jam-leave"
             onClick={leaveJam}
+            type="button"
           >
 
-            <LogOut size={16} />
+            <LogOut
+              size={16}
+            />
 
             Leave Jam
 
           </button>
 
         </div>
+
+
+        {/* ==================================================
+            JAM SETTINGS
+        ================================================== */}
+
+        {settingsOpen && (
+
+          <JamSettings
+            onClose={() =>
+              setSettingsOpen(false)
+            }
+          />
+
+        )}
 
       </div>
 
@@ -871,9 +931,12 @@ function JamPanel({
             className="jam-close"
             onClick={onClose}
             aria-label="Close Jam"
+            type="button"
           >
 
-            <X size={19} />
+            <X
+              size={19}
+            />
 
           </button>
 
@@ -884,6 +947,7 @@ function JamPanel({
           className="jam-create"
           onClick={createJam}
           disabled={loading}
+          type="button"
         >
 
           <ChartuneJamMark
@@ -947,8 +1011,11 @@ function JamPanel({
                 loading ||
                 !joinCode.trim()
               }
+              type="button"
             >
+
               JOIN
+
             </button>
 
           </div>

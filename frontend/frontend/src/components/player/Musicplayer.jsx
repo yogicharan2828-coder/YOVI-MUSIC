@@ -18,6 +18,8 @@ import {
   usePlayer,
 } from "../../context/PlayerContext";
 
+import useJamControl from "../../hooks/useJamControl";
+
 import LyricsPanel from "./LyricsPanel";
 import QueuePanel from "./QueuePanel";
 import NowPlaying from "./NowPlaying";
@@ -85,6 +87,18 @@ function MusicPlayer({
     removeFromFavorites,
 
   } = usePlayer();
+
+
+  // ==========================================================
+  // JAM CONTROL PERMISSIONS
+  // ==========================================================
+
+  const {
+    canPlayPause,
+    canSeek,
+    canSkip,
+    isJamGuest,
+  } = useJamControl();
 
 
   // ==========================================================
@@ -203,6 +217,15 @@ function MusicPlayer({
     }
 
 
+    if (
+      !canSeek
+    ) {
+
+      return;
+
+    }
+
+
     seekTo(
       value
     );
@@ -248,13 +271,15 @@ function MusicPlayer({
 
     event.stopPropagation();
 
-    /*
-     * Do not disable this button based on
-     * duration or YouTube video ID.
-     *
-     * PlayerContext owns the YouTube
-     * readiness and playback logic.
-     */
+
+    if (
+      !canPlayPause
+    ) {
+
+      return;
+
+    }
+
 
     togglePlay();
 
@@ -286,10 +311,10 @@ function MusicPlayer({
           COMPACT PLAYER
       ================================================== */}
 
-  <div
-  className="music-player"
-  onClick={openNowPlaying}
->
+      <div
+        className="music-player"
+        onClick={openNowPlaying}
+      >
 
 
         {/* =================================================
@@ -385,11 +410,11 @@ function MusicPlayer({
         ================================================= */}
 
         <div
-  className="player-main"
-  onClick={(event) =>
-    event.stopPropagation()
-  }
->
+          className="player-main"
+          onClick={(event) =>
+            event.stopPropagation()
+          }
+        >
 
 
           {/* =================================================
@@ -403,10 +428,19 @@ function MusicPlayer({
 
             <button
               onClick={
-                playPrevious
+                canSkip
+                  ? playPrevious
+                  : undefined
+              }
+              disabled={
+                !canSkip
               }
               aria-label="Previous song"
-              title="Previous"
+              title={
+                canSkip
+                  ? "Previous"
+                  : "Only the host can control Jam playback"
+              }
               type="button"
             >
 
@@ -428,16 +462,23 @@ function MusicPlayer({
               onClick={
                 handlePlay
               }
+              disabled={
+                !canPlayPause
+              }
               type="button"
               aria-label={
-                isPlaying
-                  ? "Pause"
-                  : "Play"
+                isJamGuest
+                  ? "Only the host can control Jam playback"
+                  : isPlaying
+                    ? "Pause"
+                    : "Play"
               }
               title={
-                isPlaying
-                  ? "Pause"
-                  : "Play"
+                isJamGuest
+                  ? "Only the host can control Jam playback"
+                  : isPlaying
+                    ? "Pause"
+                    : "Play"
               }
             >
 
@@ -470,10 +511,19 @@ function MusicPlayer({
 
             <button
               onClick={
-                playNext
+                canSkip
+                  ? playNext
+                  : undefined
+              }
+              disabled={
+                !canSkip
               }
               aria-label="Next song"
-              title="Next"
+              title={
+                canSkip
+                  ? "Next"
+                  : "Only the host can control Jam playback"
+              }
               type="button"
             >
 
@@ -519,7 +569,8 @@ function MusicPlayer({
                   `${progress}%`,
               }}
               disabled={
-                !duration
+                !duration ||
+                !canSeek
               }
               aria-label="Song progress"
             />
@@ -553,7 +604,7 @@ function MusicPlayer({
               <span>
                 {isHost
                   ? "JAM HOST"
-                  : "JAM SYNCED"}
+                  : "JAM SYNCED — HOST CONTROLS"}
               </span>
 
             </div>
@@ -568,11 +619,11 @@ function MusicPlayer({
         ================================================= */}
 
         <div
-  className="player-actions"
-  onClick={(event) =>
-    event.stopPropagation()
-  }
->
+          className="player-actions"
+          onClick={(event) =>
+            event.stopPropagation()
+          }
+        >
 
 
           {/* LYRICS */}

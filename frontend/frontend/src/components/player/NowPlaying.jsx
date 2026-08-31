@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import {
+  useEffect,
   useState,
 } from "react";
 
@@ -17,10 +18,9 @@ import {
   usePlayer,
 } from "../../context/PlayerContext";
 
+import useJamControl from "../../hooks/useJamControl";
+
 import SongActionMenu from "./SongActionMenu";
-import {
-  useEffect,
-} from "react";
 
 
 function formatTime(seconds) {
@@ -96,6 +96,18 @@ function NowPlaying({
   } = usePlayer();
 
 
+  // ==========================================================
+  // JAM CONTROL PERMISSIONS
+  // ==========================================================
+
+  const {
+    canPlayPause,
+    canSeek,
+    canSkip,
+    isJamGuest,
+  } = useJamControl();
+
+
   const [
     actionMenuOpen,
     setActionMenuOpen,
@@ -108,52 +120,58 @@ function NowPlaying({
   ] = useState("");
 
 
-  if (!currentSong) {
-    return null;
-  }
-useEffect(() => {
+  // ==========================================================
+  // KEYBOARD
+  // ==========================================================
 
-  const handleKeyDown = (
-    event
-  ) => {
+  useEffect(() => {
 
-    /*
-     * Escape is intentionally NOT used
-     * to close the panel.
-     *
-     * The user requested the arrow as
-     * the desktop close control.
-     */
-
-    if (
-      event.key === "Escape"
-    ) {
+    const handleKeyDown = (
+      event
+    ) => {
 
       /*
-       * Intentionally do nothing.
+       * Escape is intentionally NOT used
+       * to close the panel.
        */
 
-    }
+      if (
+        event.key === "Escape"
+      ) {
 
-  };
+        /*
+         * Intentionally do nothing.
+         */
+
+      }
+
+    };
 
 
-  window.addEventListener(
-    "keydown",
-    handleKeyDown
-  );
-
-
-  return () => {
-
-    window.removeEventListener(
+    window.addEventListener(
       "keydown",
       handleKeyDown
     );
 
-  };
 
-}, []);
+    return () => {
+
+      window.removeEventListener(
+        "keydown",
+        handleKeyDown
+      );
+
+    };
+
+  }, []);
+
+
+  if (!currentSong) {
+
+    return null;
+
+  }
+
 
   // ==========================================================
   // PROGRESS
@@ -186,7 +204,18 @@ useEffect(() => {
 
 
     if (
-      !Number.isFinite(value)
+      !Number.isFinite(
+        value
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    if (
+      !canSeek
     ) {
 
       return;
@@ -197,6 +226,66 @@ useEffect(() => {
     seekTo(
       value
     );
+
+  };
+
+
+  // ==========================================================
+  // PLAY / PAUSE
+  // ==========================================================
+
+  const handlePlay = () => {
+
+    if (
+      !canPlayPause
+    ) {
+
+      return;
+
+    }
+
+
+    togglePlay();
+
+  };
+
+
+  // ==========================================================
+  // PREVIOUS
+  // ==========================================================
+
+  const handlePrevious = () => {
+
+    if (
+      !canSkip
+    ) {
+
+      return;
+
+    }
+
+
+    playPrevious();
+
+  };
+
+
+  // ==========================================================
+  // NEXT
+  // ==========================================================
+
+  const handleNext = () => {
+
+    if (
+      !canSkip
+    ) {
+
+      return;
+
+    }
+
+
+    playNext();
 
   };
 
@@ -216,7 +305,9 @@ useEffect(() => {
 
     window.setTimeout(
       () => {
+
         setMessage("");
+
       },
       2200
     );
@@ -697,10 +788,11 @@ useEffect(() => {
 
       <div className="now-playing-topbar">
 
-
         <button
           className="now-playing-close"
-          onClick={onClose}
+          onClick={
+            onClose
+          }
           aria-label="Close now playing"
           title="Close"
         >
@@ -818,6 +910,7 @@ useEffect(() => {
             onClick={
               handleFavorite
             }
+            type="button"
           >
 
             <Heart
@@ -861,7 +954,8 @@ useEffect(() => {
                 `${progress}%`,
             }}
             disabled={
-              !duration
+              !duration ||
+              !canSeek
             }
             aria-label="Song progress"
           />
@@ -894,12 +988,22 @@ useEffect(() => {
         <div className="now-playing-controls">
 
 
+          {/* PREVIOUS */}
+
           <button
             onClick={
-              playPrevious
+              handlePrevious
+            }
+            disabled={
+              !canSkip
             }
             aria-label="Previous song"
-            title="Previous"
+            title={
+              canSkip
+                ? "Previous song"
+                : "Only the host can control Jam playback"
+            }
+            type="button"
           >
 
             <SkipBack
@@ -909,24 +1013,32 @@ useEffect(() => {
           </button>
 
 
+          {/* PLAY / PAUSE */}
+
           <button
             className="now-playing-play"
             onClick={
-              togglePlay
+              handlePlay
             }
             disabled={
-              isLoading
+              isLoading ||
+              !canPlayPause
             }
             aria-label={
-              isPlaying
-                ? "Pause"
-                : "Play"
+              isJamGuest
+                ? "Only the host can control Jam playback"
+                : isPlaying
+                  ? "Pause"
+                  : "Play"
             }
             title={
-              isPlaying
-                ? "Pause"
-                : "Play"
+              isJamGuest
+                ? "Only the host can control Jam playback"
+                : isPlaying
+                  ? "Pause"
+                  : "Play"
             }
+            type="button"
           >
 
             {isLoading ? (
@@ -954,12 +1066,22 @@ useEffect(() => {
           </button>
 
 
+          {/* NEXT */}
+
           <button
             onClick={
-              playNext
+              handleNext
+            }
+            disabled={
+              !canSkip
             }
             aria-label="Next song"
-            title="Next"
+            title={
+              canSkip
+                ? "Next song"
+                : "Only the host can control Jam playback"
+            }
+            type="button"
           >
 
             <SkipForward
@@ -972,11 +1094,25 @@ useEffect(() => {
 
 
         {/* =================================================
+            GUEST MESSAGE
+        ================================================= */}
+
+        {isJamGuest && (
+
+          <div className="now-playing-jam-notice">
+
+            HOST CONTROLS PLAYBACK
+
+          </div>
+
+        )}
+
+
+        {/* =================================================
             SECONDARY ACTIONS
         ================================================= */}
 
         <div className="now-playing-actions">
-
 
           <button
             onClick={() =>
@@ -986,6 +1122,7 @@ useEffect(() => {
             }
             aria-label="Song options"
             title="Song options"
+            type="button"
           >
 
             <Ellipsis
@@ -1005,6 +1142,7 @@ useEffect(() => {
             }
             aria-label="Queue"
             title="Queue"
+            type="button"
           >
 
             <ListMusic
@@ -1024,6 +1162,7 @@ useEffect(() => {
             }
             aria-label="Lyrics"
             title="Lyrics"
+            type="button"
           >
 
             <span>

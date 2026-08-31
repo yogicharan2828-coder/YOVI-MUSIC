@@ -19,6 +19,16 @@ class JamSession:
         default_factory=set
     )
 
+    # ==========================================================
+    # GUEST PERMISSIONS
+    # ==========================================================
+
+    allow_guest_playback: bool = False
+
+    allow_guest_song_change: bool = False
+
+    allow_guest_queue: bool = False
+
 
 class JamManager:
 
@@ -153,7 +163,9 @@ class JamManager:
         if is_playing is not None:
 
             session.is_playing = (
-                is_playing
+                bool(
+                    is_playing
+                )
             )
 
 
@@ -161,6 +173,56 @@ class JamManager:
 
             session.position = (
                 float(position)
+            )
+
+
+        return session
+
+
+    # ==========================================================
+    # UPDATE GUEST PERMISSIONS
+    # ==========================================================
+
+    def update_permissions(
+        self,
+        session_id: str,
+        allow_guest_playback: bool | None = None,
+        allow_guest_song_change: bool | None = None,
+        allow_guest_queue: bool | None = None,
+    ):
+
+        session = self.get_session(
+            session_id
+        )
+
+        if not session:
+            return None
+
+
+        if allow_guest_playback is not None:
+
+            session.allow_guest_playback = (
+                bool(
+                    allow_guest_playback
+                )
+            )
+
+
+        if allow_guest_song_change is not None:
+
+            session.allow_guest_song_change = (
+                bool(
+                    allow_guest_song_change
+                )
+            )
+
+
+        if allow_guest_queue is not None:
+
+            session.allow_guest_queue = (
+                bool(
+                    allow_guest_queue
+                )
             )
 
 
@@ -177,6 +239,7 @@ class JamManager:
     ):
 
         return {
+
             "session_id":
                 session.session_id,
 
@@ -201,6 +264,20 @@ class JamManager:
                 len(
                     session.participants
                 ),
+
+            # ==================================================
+            # GUEST PERMISSIONS
+            # ==================================================
+
+            "allow_guest_playback":
+                session.allow_guest_playback,
+
+            "allow_guest_song_change":
+                session.allow_guest_song_change,
+
+            "allow_guest_queue":
+                session.allow_guest_queue,
+
         }
 
 

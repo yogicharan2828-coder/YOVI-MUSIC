@@ -1773,6 +1773,36 @@ useEffect(() => {
           Number(
             options.jamPosition ?? 0
           );
+          // ------------------------------------------------------
+// JAM GUEST SONG CHANGE PERMISSION
+// ------------------------------------------------------
+//
+// Incoming Jam songs are allowed to load locally.
+// A normal guest action, however, must be explicitly
+// permitted by the host.
+//
+// Without this guard, the guest's local YouTube player
+// can change even though the backend correctly rejects
+// the SONG_CHANGE event.
+//
+
+if (
+  jamConnectedRef.current &&
+  !isHostRef.current &&
+  !fromJam &&
+  !Boolean(
+    jamStateRef.current?.allowGuestSongChange ??
+    jamStateRef.current?.allow_guest_song_change
+  )
+) {
+
+  console.log(
+    "[YOVI JAM] Guest song change blocked"
+  );
+
+  return false;
+
+}
 
 
         const identity =
@@ -3124,6 +3154,28 @@ useEffect(() => {
    * That is handled by the playback effect.
    */
 
+    // ==========================================================
+  // JAM SONG SYNCHRONIZATION
+  // ==========================================================
+
+  /*
+   * This effect reacts when the Jam's current song changes.
+   *
+   * IMPORTANT:
+   *
+   * When Jam is opened while the local player is ALREADY
+   * playing the exact same song, we must NOT call playSong().
+   *
+   * playSong() reloads the YouTube iframe with loadVideoById().
+   * During Jam initialization that reload can produce a pause/
+   * buffering transition on the guest and the following PLAY
+   * event can be lost.
+   *
+   * In that case the existing YouTube player is kept alive and
+   * the Jam playback synchronization effect below becomes the
+   * authority for position and play/pause.
+   */
+
   useEffect(() => {
 
     if (
@@ -3150,7 +3202,7 @@ useEffect(() => {
 
 
     /*
-     * Same song:
+     * Same Jam song was already processed.
      *
      * Do not reload it.
      */
@@ -3160,17 +3212,19 @@ useEffect(() => {
       jamSongId
     ) {
 
+      const rawPosition =
+        Number(
+          jamState.position ?? 0
+        );
+
+
       pendingJamPosition.current =
         Number.isFinite(
-          Number(
-            jamState.position
-          )
+          rawPosition
         )
           ? Math.max(
               0,
-              Number(
-                jamState.position
-              )
+              rawPosition
             )
           : 0;
 
@@ -3181,7 +3235,118 @@ useEffect(() => {
 
 
     /*
+     * CRITICAL JAM INITIALIZATION FIX
+     *
+     * If the local player already contains this exact song and
+     * the YouTube iframe is ready, keep that player alive.
+     *
+     * This prevents opening Jam from reloading the song and
+     * accidentally pausing the guest.
+     */
+
+    const localSong =
+      currentSongRef.current;
+
+
+    const activePlayer =
+      playerRef.current;
+
+
+    if (
+      localSong &&
+      isSameSong(
+        localSong,
+        jamSong
+      ) &&
+      activePlayer &&
+      youtubeReadyRef.current
+    ) {
+
+      console.log(
+        "[YOVI JAM] Same song already loaded — preserving YouTube player"
+      );
+
+
+      lastJamSongId.current =
+        jamSongId;
+
+
+      pendingJamSong.current =
+        null;
+
+
+      const rawPosition =
+        Number(
+          jamState.position ?? 0
+        );
+
+
+      const safePosition =
+        Number.isFinite(
+          rawPosition
+        )
+          ? Math.max(
+              0,
+              rawPosition
+            )
+          : 0;
+
+
+      pendingJamPosition.current =
+        safePosition;
+
+
+      pendingJamPlay.current =
+        Boolean(
+          jamState.isPlaying
+        );
+
+
+      pendingJamPause.current =
+        !Boolean(
+          jamState.isPlaying
+        );
+
+
+      /*
+       * Keep React's position aligned with Jam.
+       *
+       * The Jam playback synchronization effect below will
+       * correct actual YouTube position drift when necessary.
+       */
+
+      setCurrentTime(
+        safePosition
+      );
+
+
+      currentTimeRef.current =
+        safePosition;
+
+
+      /*
+       * Re-run Jam playback synchronization immediately.
+       *
+       * This decides whether the existing YouTube player should
+       * currently be playing or paused.
+       */
+
+      setJamSyncVersion(
+        (value) =>
+          value + 1
+      );
+
+
+      return;
+
+    }
+
+
+    /*
      * New Jam song.
+     *
+     * This is a genuine song change, so use the existing
+     * Jam loading path.
      */
 
     lastJamSongId.current =
@@ -3226,13 +3391,10 @@ useEffect(() => {
 
 
     /*
-     * IMPORTANT:
+     * Do not call playVideo() here.
      *
-     * We do not call playVideo() inside
-     * this effect.
-     *
-     * The playback effect below decides
-     * whether the guest should play or pause.
+     * The Jam playback synchronization effect below decides
+     * whether the player should play or pause.
      */
 
     void playSong(
@@ -3250,7 +3412,6 @@ useEffect(() => {
     jamState?.currentSong,
     playSong,
   ]);
-
 
   // ==========================================================
   // JAM SONG LOADING
@@ -3637,9 +3798,22 @@ useEffect(() => {
   const playNext =
     async () => {
 
-      if (!queue.length) {
-        return;
-      }
+      if (
+  jamConnectedRef.current &&
+  !isHostRef.current &&
+  !Boolean(
+    jamStateRef.current?.allowGuestSongChange ??
+    jamStateRef.current?.allow_guest_song_change
+  )
+) {
+
+  console.log(
+    "[YOVI JAM] Guest next-song control blocked"
+  );
+
+  return;
+
+}
 
 
       const actualCurrentIndex =
@@ -3714,9 +3888,22 @@ useEffect(() => {
   const playPrevious =
     async () => {
 
-      if (!queue.length) {
-        return;
-      }
+     if (
+  jamConnectedRef.current &&
+  !isHostRef.current &&
+  !Boolean(
+    jamStateRef.current?.allowGuestSongChange ??
+    jamStateRef.current?.allow_guest_song_change
+  )
+) {
+
+  console.log(
+    "[YOVI JAM] Guest previous-song control blocked"
+  );
+
+  return;
+
+}
 
 
       /*

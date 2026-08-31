@@ -9725,3 +9725,523 @@ body,
   }
 
 }
+
+/* ==========================================================
+   JAM HEADER ACTIONS
+   ========================================================== */
+
+.jam-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+/* ==========================================================
+   JAM SETTINGS BUTTON
+   ========================================================== */
+
+.jam-settings-button {
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 50%;
+
+  background: rgba(255, 255, 255, 0.04);
+
+  color: rgba(255, 255, 255, 0.7);
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+.jam-settings-button:hover {
+  background: rgba(255, 255, 255, 0.09);
+
+  color: #fff;
+
+  border-color:
+    rgba(255, 255, 255, 0.15);
+}
+
+@media (max-width: 768px) {
+
+  .jam-header-actions {
+    gap: 6px;
+  }
+
+
+  .jam-settings-button,
+  .jam-close {
+    width: 34px;
+    height: 34px;
+  }
+
+}
+/* ==========================================================
+   JAM HEADER ACTIONS
+   ========================================================== */
+
+.jam-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+
+/* ==========================================================
+   JAM SETTINGS BUTTON
+   ========================================================== */
+
+.jam-settings-button {
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+
+  background: rgba(255, 255, 255, 0.04);
+
+  color: rgba(255, 255, 255, 0.72);
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.jam-settings-button:hover {
+  background: rgba(255, 255, 255, 0.09);
+
+  color: #ffffff;
+
+  border-color: rgba(255, 255, 255, 0.14);
+
+  transform: rotate(20deg);
+}
+
+
+/* ==========================================================
+   SETTINGS OVERLAY
+   ========================================================== */
+
+.jam-settings-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 10000;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  padding: 24px;
+
+  background: rgba(0, 0, 0, 0.72);
+
+  backdrop-filter: blur(14px);
+
+  -webkit-backdrop-filter: blur(14px);
+}
+
+
+/* ==========================================================
+   SETTINGS PANEL
+   ========================================================== */
+
+.jam-settings-panel {
+  width: min(100%, 520px);
+
+  max-height: min(680px, calc(100vh - 48px));
+
+  overflow-y: auto;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(27, 27, 27, 0.98),
+      rgba(16, 16, 16, 0.98)
+    );
+
+  border: 1px solid rgba(255, 255, 255, 0.09);
+
+  border-radius: 22px;
+
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 8px 30px rgba(0, 0, 0, 0.35);
+
+  color: #ffffff;
+
+  padding: 28px;
+}
+
+
+/* ==========================================================
+   SETTINGS HEADER
+   ========================================================== */
+
+.jam-settings-header {
+  display: grid;
+
+  grid-template-columns: 40px 1fr 40px;
+
+  align-items: center;
+
+  gap: 14px;
+
+  padding-bottom: 24px;
+
+  border-bottom: 1px solid
+    rgba(255, 255, 255, 0.07);
+}
+
+
+.jam-settings-header > div {
+  min-width: 0;
+}
+
+
+.jam-settings-header .jam-eyebrow {
+  display: block;
+
+  margin-bottom: 4px;
+}
+
+
+.jam-settings-header h2 {
+  margin: 0;
+
+  font-family: Georgia, "Times New Roman", serif;
+
+  font-size: 28px;
+
+  line-height: 1.15;
+
+  font-weight: 600;
+
+  letter-spacing: -0.02em;
+
+  color: #ffffff;
+}
+
+
+/* ==========================================================
+   SETTINGS HEADER BUTTONS
+   ========================================================== */
+
+.jam-settings-back,
+.jam-settings-close {
+  width: 38px;
+  height: 38px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 50%;
+
+  background: rgba(255, 255, 255, 0.04);
+
+  color: rgba(255, 255, 255, 0.75);
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+.jam-settings-back:hover,
+.jam-settings-close:hover {
+  background: rgba(255, 255, 255, 0.09);
+
+  color: #ffffff;
+
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+
+/* ==========================================================
+   SETTINGS SECTION
+   ========================================================== */
+
+.jam-settings-section {
+  padding-top: 26px;
+}
+
+
+.jam-settings-section-title {
+  display: block;
+
+  margin-bottom: 12px;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.16em;
+
+  color: rgba(255, 255, 255, 0.38);
+}
+
+
+/* ==========================================================
+   SETTING ROW
+   ========================================================== */
+
+.jam-setting-row {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 24px;
+
+  padding: 18px;
+
+  background: rgba(255, 255, 255, 0.035);
+
+  border: 1px solid rgba(255, 255, 255, 0.07);
+
+  border-radius: 16px;
+}
+
+
+.jam-setting-info {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+
+  min-width: 0;
+}
+
+
+.jam-setting-info strong {
+  font-size: 15px;
+
+  font-weight: 600;
+
+  color: #ffffff;
+}
+
+
+.jam-setting-info span {
+  max-width: 360px;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+
+  color: rgba(255, 255, 255, 0.48);
+}
+
+
+/* ==========================================================
+   TOGGLE
+   ========================================================== */
+
+.jam-toggle {
+  flex: 0 0 auto;
+
+  width: 50px;
+  height: 28px;
+
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+
+  cursor: pointer;
+}
+
+
+.jam-toggle-track {
+  position: relative;
+
+  display: block;
+
+  width: 50px;
+  height: 28px;
+
+  border-radius: 999px;
+
+  background: rgba(255, 255, 255, 0.13);
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+
+.jam-toggle-thumb {
+  position: absolute;
+
+  top: 3px;
+  left: 3px;
+
+  width: 20px;
+  height: 20px;
+
+  border-radius: 50%;
+
+  background: rgba(255, 255, 255, 0.72);
+
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.35);
+
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+
+/* ==========================================================
+   TOGGLE ACTIVE
+   ========================================================== */
+
+.jam-toggle.active .jam-toggle-track {
+  background: rgba(255, 255, 255, 0.9);
+
+  border-color: rgba(255, 255, 255, 0.95);
+}
+
+
+.jam-toggle.active .jam-toggle-thumb {
+  transform: translateX(22px);
+
+  background: #111111;
+}
+
+
+/* ==========================================================
+   SETTINGS NOTE
+   ========================================================== */
+
+.jam-settings-note {
+  margin-top: 18px;
+
+  padding: 15px 17px;
+
+  border-radius: 13px;
+
+  background: rgba(255, 255, 255, 0.025);
+
+  border: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+
+.jam-settings-note span {
+  display: block;
+
+  font-size: 12px;
+
+  line-height: 1.5;
+
+  color: rgba(255, 255, 255, 0.42);
+}
+
+
+/* ==========================================================
+   SETTINGS SCROLLBAR
+   ========================================================== */
+
+.jam-settings-panel::-webkit-scrollbar {
+  width: 5px;
+}
+
+
+.jam-settings-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+.jam-settings-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+
+  border-radius: 999px;
+}
+
+
+/* ==========================================================
+   MOBILE
+   ========================================================== */
+
+@media (max-width: 768px) {
+
+  .jam-settings-overlay {
+    align-items: flex-end;
+
+    padding: 0;
+  }
+
+
+  .jam-settings-panel {
+    width: 100%;
+
+    max-height: 85vh;
+
+    border-radius:
+      24px 24px 0 0;
+
+    padding:
+      24px 20px
+      calc(24px + env(safe-area-inset-bottom));
+  }
+
+
+  .jam-settings-header {
+    grid-template-columns: 38px 1fr 38px;
+
+    padding-bottom: 20px;
+  }
+
+
+  .jam-settings-header h2 {
+    font-size: 24px;
+  }
+
+
+  .jam-setting-row {
+    gap: 16px;
+
+    padding: 16px;
+  }
+
+
+  .jam-setting-info span {
+    font-size: 12px;
+  }
+
+}
