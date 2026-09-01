@@ -24,8 +24,8 @@ import useSongActions from "../hooks/useSongActions";
 
 import SongActionMenu from "../components/player/SongActionMenu";
 
-
 import API_BASE_URL from "../config/api";
+
 
 const SEARCH_HISTORY_KEY =
   "yovi_search_history";
@@ -137,12 +137,20 @@ function Search() {
   ] = useState(null);
 
 
+  // ----------------------------------------------------------
+  // SEARCH CONTROL REFS
+  // ----------------------------------------------------------
+
   const debounceRef =
     useRef(null);
 
 
   const requestIdRef =
     useRef(0);
+
+
+  const abortControllerRef =
+    useRef(null);
 
 
   const {
@@ -172,6 +180,7 @@ function Search() {
       return;
     }
 
+
     const updated = [
 
       trimmed,
@@ -187,9 +196,11 @@ function Search() {
       MAX_HISTORY
     );
 
+
     setHistory(
       updated
     );
+
 
     saveSearchHistory(
       updated
@@ -205,15 +216,18 @@ function Search() {
 
     event.stopPropagation();
 
+
     const updated =
       history.filter(
         (entry) =>
           entry !== item
       );
 
+
     setHistory(
       updated
     );
+
 
     saveSearchHistory(
       updated
@@ -232,7 +246,31 @@ function Search() {
       query.trim();
 
 
+    // --------------------------------------------------------
+    // EMPTY QUERY
+    // --------------------------------------------------------
+
     if (!trimmedQuery) {
+
+      requestIdRef.current += 1;
+
+
+      if (
+        abortControllerRef.current
+      ) {
+
+        abortControllerRef.current.abort();
+
+        abortControllerRef.current =
+          null;
+
+      }
+
+
+      clearTimeout(
+        debounceRef.current
+      );
+
 
       setResults([]);
 
@@ -245,10 +283,73 @@ function Search() {
     }
 
 
+    // --------------------------------------------------------
+    // DON'T SEARCH FOR VERY SHORT QUERIES
+    // --------------------------------------------------------
+
+    if (
+      trimmedQuery.length < 3
+    ) {
+
+      requestIdRef.current += 1;
+
+
+      if (
+        abortControllerRef.current
+      ) {
+
+        abortControllerRef.current.abort();
+
+        abortControllerRef.current =
+          null;
+
+      }
+
+
+      clearTimeout(
+        debounceRef.current
+      );
+
+
+      setResults([]);
+
+      setLoading(false);
+
+      setError("");
+
+      return;
+
+    }
+
+
+    // --------------------------------------------------------
+    // CANCEL PREVIOUS DEBOUNCE
+    // --------------------------------------------------------
+
     clearTimeout(
       debounceRef.current
     );
 
+
+    // --------------------------------------------------------
+    // CANCEL PREVIOUS REQUEST
+    // --------------------------------------------------------
+
+    if (
+      abortControllerRef.current
+    ) {
+
+      abortControllerRef.current.abort();
+
+      abortControllerRef.current =
+        null;
+
+    }
+
+
+    // --------------------------------------------------------
+    // DEBOUNCE
+    // --------------------------------------------------------
 
     debounceRef.current =
       setTimeout(
@@ -256,6 +357,14 @@ function Search() {
 
           const requestId =
             ++requestIdRef.current;
+
+
+          const controller =
+            new AbortController();
+
+
+          abortControllerRef.current =
+            controller;
 
 
           try {
@@ -267,11 +376,19 @@ function Search() {
             setError("");
 
 
+            // ------------------------------------------------
+            // JIOSAAVN SEARCH
+            // ------------------------------------------------
+
             const response =
               await fetch(
                 `${API_BASE_URL}/music/search?q=${encodeURIComponent(
                   trimmedQuery
-                )}&limit=20`
+                )}&limit=6`,
+                {
+                  signal:
+                    controller.signal,
+                }
               );
 
 
@@ -290,6 +407,10 @@ function Search() {
               await response.json();
 
 
+            // ------------------------------------------------
+            // IGNORE STALE REQUESTS
+            // ------------------------------------------------
+
             if (
               requestId !==
               requestIdRef.current
@@ -300,15 +421,34 @@ function Search() {
             }
 
 
-            setResults(
+            const nextResults =
               Array.isArray(
                 data.results
               )
                 ? data.results
-                : []
+                : [];
+
+
+            setResults(
+              nextResults
             );
 
+
           } catch (err) {
+
+            // ------------------------------------------------
+            // ABORTED REQUESTS ARE NORMAL
+            // ------------------------------------------------
+
+            if (
+              err?.name ===
+              "AbortError"
+            ) {
+
+              return;
+
+            }
+
 
             if (
               requestId !==
@@ -321,6 +461,7 @@ function Search() {
 
 
             console.error(
+              "[YOVI SEARCH]",
               err
             );
 
@@ -343,6 +484,17 @@ function Search() {
                 false
               );
 
+
+              if (
+                abortControllerRef.current ===
+                controller
+              ) {
+
+                abortControllerRef.current =
+                  null;
+
+              }
+
             }
 
           }
@@ -351,6 +503,10 @@ function Search() {
         300
       );
 
+
+    // ========================================================
+    // CLEANUP
+    // ========================================================
 
     return () => {
 
@@ -366,6 +522,32 @@ function Search() {
 
 
   // ==========================================================
+  // COMPONENT UNMOUNT CLEANUP
+  // ==========================================================
+
+  useEffect(() => {
+
+    return () => {
+
+      clearTimeout(
+        debounceRef.current
+      );
+
+
+      if (
+        abortControllerRef.current
+      ) {
+
+        abortControllerRef.current.abort();
+
+      }
+
+    };
+
+  }, []);
+
+
+  // ==========================================================
   // PLAY
   // ==========================================================
 
@@ -376,6 +558,7 @@ function Search() {
     addToHistory(
       query
     );
+
 
     playSong(
       song,
@@ -395,6 +578,7 @@ function Search() {
   ) => {
 
     event.stopPropagation();
+
 
     setActionSong(
       song
@@ -437,6 +621,7 @@ function Search() {
       item
     );
 
+
     setSearchParams({
       q: item,
     });
@@ -458,9 +643,11 @@ function Search() {
           YOVI SEARCH
         </span>
 
+
         <h1>
           Search results
         </h1>
+
 
         <p>
 
@@ -583,6 +770,7 @@ function Search() {
       ==================================================== */}
 
       {query.trim() &&
+        query.trim().length >= 3 &&
         loading && (
 
           <div className="search-status">
@@ -611,6 +799,7 @@ function Search() {
 
 
       {query.trim() &&
+        query.trim().length >= 3 &&
         !loading &&
         !error &&
         results.length === 0 && (
@@ -618,6 +807,20 @@ function Search() {
           <div className="search-status">
 
             No music found.
+
+          </div>
+
+        )}
+
+
+      {query.trim() &&
+        query.trim().length > 0 &&
+        query.trim().length < 3 &&
+        !loading && (
+
+          <div className="search-status">
+
+            Type at least 3 characters to search.
 
           </div>
 
@@ -663,9 +866,11 @@ function Search() {
                       {song.title}
                     </h2>
 
+
                     <p>
                       {song.artist}
                     </p>
+
 
                     {song.album && (
 
@@ -688,6 +893,7 @@ function Search() {
                     ) => {
 
                       event.stopPropagation();
+
 
                       handlePlay(
                         song

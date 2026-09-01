@@ -109,6 +109,18 @@ export function PlayerProvider({
     jamSongChange,
   } = useJam();
 
+  const handleAudioReady = useCallback(
+  (audioElement) => {
+
+    audioRef.current =
+      audioElement;
+
+  },
+  []
+);
+
+
+
 
   // ==========================================================
   // PLAYER STATE
@@ -234,6 +246,8 @@ export function PlayerProvider({
 
   const playerRef =
     useRef(null);
+
+    const audioRef = useRef(null);
 
 
   const progressTimer =
@@ -4552,8 +4566,320 @@ if (
     setIsLoading(
       false
     );
+    
 
   };
+  // ==========================================================
+// NATIVE AUDIO CONTROLS
+// ==========================================================
+
+const playAudio =
+  useCallback(
+    async () => {
+
+      const audio =
+        audioRef.current;
+
+      if (!audio) {
+        return false;
+      }
+
+      try {
+
+        await audio.play();
+
+        return true;
+
+      } catch (error) {
+
+        console.error(
+          "[YOVI AUDIO] Play failed:",
+          error
+        );
+
+        return false;
+
+      }
+
+    },
+    []
+  );
+
+
+const pauseAudio =
+  useCallback(
+    () => {
+
+      const audio =
+        audioRef.current;
+
+      if (!audio) {
+        return false;
+      }
+
+      try {
+
+        audio.pause();
+
+        return true;
+
+      } catch (error) {
+
+        console.error(
+          "[YOVI AUDIO] Pause failed:",
+          error
+        );
+
+        return false;
+
+      }
+
+    },
+    []
+  );
+
+
+const seekAudio =
+  useCallback(
+    (
+      time
+    ) => {
+
+      const audio =
+        audioRef.current;
+
+      if (!audio) {
+        return false;
+      }
+
+      const target =
+        Number(time);
+
+      if (!Number.isFinite(target)) {
+        return false;
+      }
+
+      try {
+
+        audio.currentTime =
+          Math.max(
+            0,
+            target
+          );
+
+        return true;
+
+      } catch (error) {
+
+        console.error(
+          "[YOVI AUDIO] Seek failed:",
+          error
+        );
+
+        return false;
+
+      }
+
+    },
+    []
+  );
+
+
+const changeAudioVolume =
+  useCallback(
+    (
+      value
+    ) => {
+
+      const audio =
+        audioRef.current;
+
+      if (!audio) {
+        return false;
+      }
+
+      const nextVolume =
+        Math.max(
+          0,
+          Math.min(
+            1,
+            Number(value)
+          )
+        );
+
+      try {
+
+        audio.volume =
+          nextVolume;
+
+        return true;
+
+      } catch (error) {
+
+        console.error(
+          "[YOVI AUDIO] Volume failed:",
+          error
+        );
+
+        return false;
+
+      }
+
+    },
+    []
+  );
+
+  // ==========================================================
+// NATIVE AUDIO EVENTS
+// ==========================================================
+
+const handleAudioPlay =
+  useCallback(
+    () => {
+
+      setIsPlaying(
+        true
+      );
+
+      isPlayingRef.current =
+        true;
+
+      setIsLoading(
+        false
+      );
+
+    },
+    []
+  );
+
+
+const handleAudioPause =
+  useCallback(
+    () => {
+
+      setIsPlaying(
+        false
+      );
+
+      isPlayingRef.current =
+        false;
+
+    },
+    []
+  );
+
+
+const handleAudioEnded =
+  useCallback(
+    () => {
+
+      setIsPlaying(
+        false
+      );
+
+      isPlayingRef.current =
+        false;
+
+      handlePlayerEnd?.();
+
+    },
+    [
+      handlePlayerEnd,
+    ]
+  );
+
+
+const handleAudioTimeUpdate =
+  useCallback(
+    (
+      time
+    ) => {
+
+      const nextTime =
+        Number(time);
+
+      if (
+        !Number.isFinite(
+          nextTime
+        )
+      ) {
+        return;
+      }
+
+      setCurrentTime(
+        nextTime
+      );
+
+      currentTimeRef.current =
+        nextTime;
+
+    },
+    []
+  );
+
+
+const handleAudioLoadedMetadata =
+  useCallback(
+    (
+      nextDuration
+    ) => {
+
+      const value =
+        Number(
+          nextDuration
+        );
+
+      if (
+        !Number.isFinite(
+          value
+        )
+      ) {
+        return;
+      }
+
+      setDuration(
+        value
+      );
+
+      durationRef.current =
+        value;
+
+      setIsLoading(
+        false
+      );
+
+    },
+    []
+  );
+
+
+const handleAudioError =
+  useCallback(
+    (
+      error
+    ) => {
+
+      console.error(
+        "[YOVI AUDIO] Playback error:",
+        error
+      );
+
+      setIsLoading(
+        false
+      );
+
+      setIsPlaying(
+        false
+      );
+
+      isPlayingRef.current =
+        false;
+
+    },
+    []
+  );
+
+  
 
 
   // ==========================================================
@@ -5117,7 +5443,18 @@ if (
         sessionId,
 
         isHost,
+handleAudioReady,
+playAudio,
+pauseAudio,
+seekAudio,
+changeAudioVolume,
 
+handleAudioPlay,
+handleAudioPause,
+handleAudioEnded,
+handleAudioTimeUpdate,
+handleAudioLoadedMetadata,
+handleAudioError,
       }}
     >
 

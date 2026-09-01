@@ -23,6 +23,8 @@ const INITIAL_JAM_STATE = {
   allowGuestPlayback: false,
   allowGuestSongChange: false,
   allowGuestQueue: false,
+
+  revision: 0,
 };
 
 
@@ -67,6 +69,10 @@ export function JamProvider({
     useRef(null);
 
 
+  const latestRevisionRef =
+    useRef(0);
+
+
   const [
     sessionId,
     setSessionId,
@@ -106,6 +112,65 @@ export function JamProvider({
 
 
   // ==========================================================
+  // REVISION HELPERS
+  // ==========================================================
+
+  const acceptRevision = useCallback(
+    (
+      incomingRevision
+    ) => {
+
+      const revision =
+        Number(
+          incomingRevision
+        );
+
+
+      if (
+        !Number.isFinite(
+          revision
+        )
+      ) {
+
+        return true;
+
+      }
+
+
+      if (
+        revision <
+        latestRevisionRef.current
+      ) {
+
+        console.log(
+          "[YOVI JAM] Ignoring stale event:",
+          {
+            incomingRevision:
+              revision,
+
+            latestRevision:
+              latestRevisionRef.current,
+          }
+        );
+
+
+        return false;
+
+      }
+
+
+      latestRevisionRef.current =
+        revision;
+
+
+      return true;
+
+    },
+    []
+  );
+
+
+  // ==========================================================
   // CONNECT
   // ==========================================================
 
@@ -126,6 +191,10 @@ export function JamProvider({
             null;
 
         }
+
+
+        latestRevisionRef.current =
+          0;
 
 
         if (
@@ -223,6 +292,24 @@ export function JamProvider({
               }
 
 
+              const incomingRevision =
+                Number(
+                  session.revision ??
+                  0
+                );
+
+
+              if (
+                !acceptRevision(
+                  incomingRevision
+                )
+              ) {
+
+                return;
+
+              }
+
+
               const incomingSong =
                 session.current_song ??
                 null;
@@ -294,6 +381,9 @@ export function JamProvider({
                 allowGuestQueue:
                   incomingGuestQueue,
 
+                revision:
+                  incomingRevision,
+
               });
 
 
@@ -313,7 +403,7 @@ export function JamProvider({
 
 
               console.log(
-                "YOVI Jam initial state:",
+                "[YOVI JAM] Initial state:",
                 {
 
                   song:
@@ -325,17 +415,8 @@ export function JamProvider({
                   position:
                     incomingPosition,
 
-                  queue:
-                    incomingQueue,
-
-                  allowGuestPlayback:
-                    incomingGuestPlayback,
-
-                  allowGuestSongChange:
-                    incomingGuestSongChange,
-
-                  allowGuestQueue:
-                    incomingGuestQueue,
+                  revision:
+                    incomingRevision,
 
                 }
               );
@@ -409,7 +490,7 @@ export function JamProvider({
 
             // ==================================================
             // JAM SETTINGS
-            // ==================================================
+            // ==========================================================
 
             if (
               message.type ===
@@ -477,6 +558,17 @@ export function JamProvider({
               "PLAY"
             ) {
 
+              if (
+                !acceptRevision(
+                  message.revision
+                )
+              ) {
+
+                return;
+
+              }
+
+
               const position =
                 Number(
                   message.position ??
@@ -499,6 +591,12 @@ export function JamProvider({
                       ? position
                       : previous.position,
 
+                  revision:
+                    Number(
+                      message.revision ??
+                      previous.revision
+                    ),
+
                 })
               );
 
@@ -516,6 +614,17 @@ export function JamProvider({
               message.type ===
               "PAUSE"
             ) {
+
+              if (
+                !acceptRevision(
+                  message.revision
+                )
+              ) {
+
+                return;
+
+              }
+
 
               const position =
                 Number(
@@ -539,6 +648,12 @@ export function JamProvider({
                       ? position
                       : previous.position,
 
+                  revision:
+                    Number(
+                      message.revision ??
+                      previous.revision
+                    ),
+
                 })
               );
 
@@ -556,6 +671,17 @@ export function JamProvider({
               message.type ===
               "SEEK"
             ) {
+
+              if (
+                !acceptRevision(
+                  message.revision
+                )
+              ) {
+
+                return;
+
+              }
+
 
               const position =
                 Number(
@@ -582,6 +708,12 @@ export function JamProvider({
 
                   position,
 
+                  revision:
+                    Number(
+                      message.revision ??
+                      previous.revision
+                    ),
+
                 })
               );
 
@@ -600,6 +732,17 @@ export function JamProvider({
               "SONG_CHANGE"
             ) {
 
+              if (
+                !acceptRevision(
+                  message.revision
+                )
+              ) {
+
+                return;
+
+              }
+
+
               const position =
                 Number(
                   message.position ??
@@ -617,7 +760,9 @@ export function JamProvider({
                     previous.currentSong,
 
                   isPlaying:
-                    false,
+                    Boolean(
+                      message.is_playing
+                    ),
 
                   position:
                     Number.isFinite(
@@ -626,7 +771,27 @@ export function JamProvider({
                       ? position
                       : 0,
 
+                  revision:
+                    Number(
+                      message.revision ??
+                      previous.revision
+                    ),
+
                 })
+              );
+
+
+              console.log(
+                "[YOVI JAM] Authoritative song change:",
+                {
+
+                  song:
+                    message.song,
+
+                  revision:
+                    message.revision,
+
+                }
               );
 
 
@@ -727,7 +892,9 @@ export function JamProvider({
         };
 
       },
-      []
+      [
+        acceptRevision,
+      ]
     );
 
 
@@ -749,6 +916,10 @@ export function JamProvider({
             null;
 
         }
+
+
+        latestRevisionRef.current =
+          0;
 
 
         setSessionId(

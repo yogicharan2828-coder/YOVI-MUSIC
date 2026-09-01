@@ -15,6 +15,21 @@ class JamSession:
 
     position: float = 0.0
 
+    # ==========================================================
+    # PLAYBACK REVISION
+    # ==========================================================
+
+    # Monotonically increasing version for playback state.
+    #
+    # Every song/playback mutation increments this value.
+    # Clients can use it to ignore stale Jam events.
+    #
+    revision: int = 0
+
+    # ==========================================================
+    # PARTICIPANTS
+    # ==========================================================
+
     participants: Set[str] = field(
         default_factory=set
     )
@@ -129,11 +144,14 @@ class JamManager:
         if not session:
             return
 
+
         session.participants.discard(
             user_id
         )
 
+
         # Remove empty sessions
+
         if not session.participants:
 
             del self.sessions[
@@ -161,30 +179,103 @@ class JamManager:
             return None
 
 
+        changed = False
+
+
+        # ------------------------------------------------------
+        # CURRENT SONG
+        # ------------------------------------------------------
+
         if current_song is not None:
 
             session.current_song = (
                 current_song
             )
 
+            changed = True
+
+
+        # ------------------------------------------------------
+        # PLAYING STATE
+        # ------------------------------------------------------
 
         if is_playing is not None:
 
-            session.is_playing = (
-                bool(
-                    is_playing
-                )
+            new_is_playing = bool(
+                is_playing
             )
 
+
+            if (
+                session.is_playing
+                != new_is_playing
+            ):
+
+                session.is_playing = (
+                    new_is_playing
+                )
+
+                changed = True
+
+
+        # ------------------------------------------------------
+        # POSITION
+        # ------------------------------------------------------
 
         if position is not None:
 
-            session.position = (
-                float(position)
+            new_position = float(
+                position
             )
 
 
+            # Don't create revisions from
+            # insignificant floating-point noise.
+
+            if abs(
+                session.position
+                - new_position
+            ) > 0.01:
+
+                session.position = (
+                    new_position
+                )
+
+                changed = True
+
+
+        # ------------------------------------------------------
+        # REVISION
+        # ------------------------------------------------------
+
+        if changed:
+
+            session.revision += 1
+
+
         return session
+
+
+    # ==========================================================
+    # FORCE PLAYBACK REVISION
+    # ==========================================================
+
+    def next_playback_revision(
+        self,
+        session_id: str,
+    ) -> int | None:
+
+        session = self.get_session(
+            session_id
+        )
+
+        if not session:
+            return None
+
+
+        session.revision += 1
+
+        return session.revision
 
 
     # ==========================================================
@@ -344,6 +435,17 @@ class JamManager:
             "position":
                 session.position,
 
+            # ==================================================
+            # PLAYBACK REVISION
+            # ==================================================
+
+            "revision":
+                session.revision,
+
+            # ==================================================
+            # QUEUE
+            # ==================================================
+
             "queue":
                 list(
                     session.queue
@@ -353,6 +455,10 @@ class JamManager:
                 len(
                     session.queue
                 ),
+
+            # ==================================================
+            # PARTICIPANTS
+            # ==================================================
 
             "participants":
                 list(

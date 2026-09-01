@@ -39,38 +39,6 @@ function useJamControl() {
     );
 
 
-  console.log(
-    "[YOVI JAM CONTROL]",
-    {
-
-      jamConnected,
-
-      isHost,
-
-      allowGuestPlayback,
-
-      allowGuestSongChange,
-
-      allowGuestQueue,
-
-      canPlayPause:
-        !jamConnected ||
-        isHost ||
-        allowGuestPlayback,
-
-      canSeek:
-        !jamConnected ||
-        isHost,
-
-      canSkip:
-        !jamConnected ||
-        isHost ||
-        allowGuestSongChange,
-
-    }
-  );
-
-
   // ==========================================================
   // NORMAL MUSIC PLAYER
   // ==========================================================

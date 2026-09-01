@@ -86,7 +86,7 @@ class ConnectionManager:
             session_id
         ].pop(
             user_id,
-            None
+            None,
         )
 
 
@@ -103,7 +103,6 @@ class ConnectionManager:
         self,
         session_id: str,
         message: dict,
-        exclude_user_id: str | None = None,
     ):
 
         connections = self.connections.get(
@@ -115,17 +114,9 @@ class ConnectionManager:
         dead_connections = []
 
 
-        for user_id, websocket in (
+        for user_id, websocket in list(
             connections.items()
         ):
-
-            if (
-                exclude_user_id is not None
-                and user_id == exclude_user_id
-            ):
-
-                continue
-
 
             try:
 
@@ -144,7 +135,7 @@ class ConnectionManager:
 
             self.disconnect(
                 session_id,
-                user_id
+                user_id,
             )
 
 
@@ -439,6 +430,11 @@ async def jam_websocket(
     # SEND CURRENT STATE
     # ------------------------------------------------------
 
+    session = jam_manager.get_session(
+        session_id
+    )
+
+
     await websocket.send_json(
         {
 
@@ -595,6 +591,16 @@ async def jam_websocket(
 
             elif event_type == "PLAY":
 
+                session = jam_manager.get_session(
+                    session_id
+                )
+
+
+                if not session:
+
+                    continue
+
+
                 if (
                     not is_host
                     and not session.allow_guest_playback
@@ -611,13 +617,20 @@ async def jam_websocket(
                 )
 
 
-                jam_manager.update_playback(
-                    session_id=session_id,
+                updated_session = (
+                    jam_manager.update_playback(
+                        session_id=session_id,
 
-                    is_playing=True,
+                        is_playing=True,
 
-                    position=position,
+                        position=position,
+                    )
                 )
+
+
+                if not updated_session:
+
+                    continue
 
 
                 await connection_manager.broadcast(
@@ -628,15 +641,15 @@ async def jam_websocket(
                             "PLAY",
 
                         "position":
-                            position,
+                            updated_session.position,
+
+                        "revision":
+                            updated_session.revision,
 
                         "server_time":
                             time.time(),
 
                     },
-
-                    exclude_user_id=
-                        user_id,
                 )
 
 
@@ -645,6 +658,16 @@ async def jam_websocket(
             # ==================================================
 
             elif event_type == "PAUSE":
+
+                session = jam_manager.get_session(
+                    session_id
+                )
+
+
+                if not session:
+
+                    continue
+
 
                 if (
                     not is_host
@@ -662,13 +685,20 @@ async def jam_websocket(
                 )
 
 
-                jam_manager.update_playback(
-                    session_id=session_id,
+                updated_session = (
+                    jam_manager.update_playback(
+                        session_id=session_id,
 
-                    is_playing=False,
+                        is_playing=False,
 
-                    position=position,
+                        position=position,
+                    )
                 )
+
+
+                if not updated_session:
+
+                    continue
 
 
                 await connection_manager.broadcast(
@@ -679,15 +709,15 @@ async def jam_websocket(
                             "PAUSE",
 
                         "position":
-                            position,
+                            updated_session.position,
+
+                        "revision":
+                            updated_session.revision,
 
                         "server_time":
                             time.time(),
 
                     },
-
-                    exclude_user_id=
-                        user_id,
                 )
 
 
@@ -696,6 +726,16 @@ async def jam_websocket(
             # ==================================================
 
             elif event_type == "SEEK":
+
+                session = jam_manager.get_session(
+                    session_id
+                )
+
+
+                if not session:
+
+                    continue
+
 
                 # SEEK REMAINS HOST ONLY FOR NOW
 
@@ -712,11 +752,18 @@ async def jam_websocket(
                 )
 
 
-                jam_manager.update_playback(
-                    session_id=session_id,
+                updated_session = (
+                    jam_manager.update_playback(
+                        session_id=session_id,
 
-                    position=position,
+                        position=position,
+                    )
                 )
+
+
+                if not updated_session:
+
+                    continue
 
 
                 await connection_manager.broadcast(
@@ -727,15 +774,15 @@ async def jam_websocket(
                             "SEEK",
 
                         "position":
-                            position,
+                            updated_session.position,
+
+                        "revision":
+                            updated_session.revision,
 
                         "server_time":
                             time.time(),
 
                     },
-
-                    exclude_user_id=
-                        user_id,
                 )
 
 
@@ -744,6 +791,16 @@ async def jam_websocket(
             # ==================================================
 
             elif event_type == "SONG_CHANGE":
+
+                session = jam_manager.get_session(
+                    session_id
+                )
+
+
+                if not session:
+
+                    continue
+
 
                 if (
                     not is_host
@@ -771,16 +828,42 @@ async def jam_websocket(
                 )
 
 
-                jam_manager.update_playback(
-                    session_id=session_id,
+                # ------------------------------------------------
+                # AUTHORITATIVE SONG CHANGE
+                # ------------------------------------------------
 
-                    current_song=song,
+                updated_session = (
+                    jam_manager.update_playback(
 
-                    is_playing=False,
+                        session_id=
+                            session_id,
 
-                    position=position,
+                        current_song=
+                            song,
+
+                        is_playing=
+                            False,
+
+                        position=
+                            position,
+
+                    )
                 )
 
+
+                if not updated_session:
+
+                    continue
+
+
+                # ------------------------------------------------
+                # IMPORTANT:
+                #
+                # Do NOT exclude the sender.
+                #
+                # The guest must receive the same authoritative
+                # song + revision that the host receives.
+                # ------------------------------------------------
 
                 await connection_manager.broadcast(
                     session_id,
@@ -790,18 +873,21 @@ async def jam_websocket(
                             "SONG_CHANGE",
 
                         "song":
-                            song,
+                            updated_session.current_song,
 
                         "position":
-                            position,
+                            updated_session.position,
+
+                        "is_playing":
+                            updated_session.is_playing,
+
+                        "revision":
+                            updated_session.revision,
 
                         "server_time":
                             time.time(),
 
                     },
-
-                    exclude_user_id=
-                        user_id,
                 )
 
 
@@ -810,6 +896,16 @@ async def jam_websocket(
             # ==================================================
 
             elif event_type == "QUEUE_ADD":
+
+                session = jam_manager.get_session(
+                    session_id
+                )
+
+
+                if not session:
+
+                    continue
+
 
                 if (
                     not is_host
@@ -864,6 +960,16 @@ async def jam_websocket(
 
             elif event_type == "QUEUE_REMOVE":
 
+                session = jam_manager.get_session(
+                    session_id
+                )
+
+
+                if not session:
+
+                    continue
+
+
                 if (
                     not is_host
                     and not session.allow_guest_queue
@@ -916,6 +1022,16 @@ async def jam_websocket(
             # ==================================================
 
             elif event_type == "QUEUE_CLEAR":
+
+                session = jam_manager.get_session(
+                    session_id
+                )
+
+
+                if not session:
+
+                    continue
+
 
                 if (
                     not is_host

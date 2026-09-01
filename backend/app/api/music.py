@@ -1,8 +1,18 @@
+import asyncio
+
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services.music.youtube import youtube_service
-from app.services.music.itunes import itunes_service
-from app.services.music.deezer import deezer_service
+from app.services.music.jiosaavan import (
+    jiosaavn_service,
+)
+
+from app.services.music.itunes import (
+    itunes_service,
+)
+
+from app.services.music.youtube import (
+    youtube_service,
+)
 
 
 router = APIRouter(
@@ -12,7 +22,282 @@ router = APIRouter(
 
 
 # ============================================================
-# MUSIC SEARCH
+# HELPERS
+# ============================================================
+
+def normalize_text(
+    value,
+) -> str:
+
+    if value is None:
+        return ""
+
+    return " ".join(
+        str(value)
+        .strip()
+        .lower()
+        .split()
+    )
+
+
+def normalize_itunes_song(
+    item: dict,
+) -> dict | None:
+
+    if not isinstance(
+        item,
+        dict,
+    ):
+        return None
+
+
+    title = (
+        item.get("trackName")
+        or ""
+    ).strip()
+
+
+    artist = (
+        item.get("artistName")
+        or ""
+    ).strip()
+
+
+    if not title or not artist:
+
+        return None
+
+
+    duration = None
+
+
+    try:
+
+        duration_ms = item.get(
+            "trackTimeMillis"
+        )
+
+
+        if duration_ms is not None:
+
+            duration = (
+                int(duration_ms)
+                // 1000
+            )
+
+
+    except (
+        TypeError,
+        ValueError,
+    ):
+
+        duration = None
+
+
+    return {
+
+        "id":
+            str(
+                item.get(
+                    "trackId"
+                )
+                or ""
+            ),
+
+        "title":
+            title,
+
+        "artist":
+            artist,
+
+        "album":
+            (
+                item.get(
+                    "collectionName"
+                )
+                or ""
+            ),
+
+        "provider":
+            "itunes",
+
+        "image":
+            item.get(
+                "artworkUrl100"
+            ),
+
+        "duration":
+            duration,
+
+        "preview_url":
+            item.get(
+                "previewUrl"
+            ),
+
+        "external_url":
+            item.get(
+                "trackViewUrl"
+            ),
+
+        "album_id":
+            str(
+                item.get(
+                    "collectionId"
+                )
+                or ""
+            ),
+
+        "language":
+            None,
+
+        "release_date":
+            item.get(
+                "releaseDate"
+            ),
+
+    }
+
+
+def song_dedupe_key(
+    song: dict,
+) -> str:
+
+    title = normalize_text(
+        song.get("title")
+    )
+
+    artist = normalize_text(
+        song.get("artist")
+    )
+
+
+    return (
+        f"{title}|{artist}"
+    )
+
+
+def merge_music_results(
+    jiosaavn_results: list,
+    itunes_results: list,
+    limit: int,
+) -> list:
+
+    merged = []
+
+    seen = set()
+
+
+    # --------------------------------------------------------
+    # JIOSAAVN FIRST
+    #
+    # JioSaavn is our preferred music provider.
+    # Its results are therefore added first.
+    # --------------------------------------------------------
+
+    for song in jiosaavn_results:
+
+        if not isinstance(
+            song,
+            dict,
+        ):
+            continue
+
+
+        if not song.get(
+            "title"
+        ):
+
+            continue
+
+
+        if not song.get(
+            "artist"
+        ):
+
+            continue
+
+
+        key = song_dedupe_key(
+            song
+        )
+
+
+        if key in seen:
+
+            continue
+
+
+        seen.add(
+            key
+        )
+
+
+        merged.append(
+            song
+        )
+
+
+    # --------------------------------------------------------
+    # ITUNES FILLS THE GAPS
+    # --------------------------------------------------------
+
+    for song in itunes_results:
+
+        if len(
+            merged
+        ) >= limit:
+
+            break
+
+
+        if not isinstance(
+            song,
+            dict,
+        ):
+            continue
+
+
+        if not song.get(
+            "title"
+        ):
+
+            continue
+
+
+        if not song.get(
+            "artist"
+        ):
+
+            continue
+
+
+        key = song_dedupe_key(
+            song
+        )
+
+
+        if key in seen:
+
+            continue
+
+
+        seen.add(
+            key
+        )
+
+
+        merged.append(
+            song
+        )
+
+
+    return merged[
+        :limit
+    ]
+
+
+# ============================================================
+# MUSIC SEARCH — JIOSAAVN + ITUNES
 # ============================================================
 
 @router.get("/search")
@@ -29,170 +314,245 @@ async def search_music(
     ),
 ):
     """
-    Search music across iTunes and Deezer.
+    Search music using JioSaavn and iTunes
+    concurrently.
 
-    Results are normalized into YOVI's common
-    song format.
+    JioSaavn results are preferred when duplicate
+    songs exist. iTunes fills results that JioSaavn
+    does not provide.
+
+    Failure of either provider does not fail the
+    complete search.
     """
 
     query = q.strip()
 
+
     if not query:
+
         raise HTTPException(
             status_code=400,
             detail="Search query cannot be empty",
         )
 
-    results = []
+
+    # ========================================================
+    # PROVIDER LIMIT
+    # ========================================================
+
+    # Don't request 20-50 songs from both providers
+    # when the frontend normally needs only a small
+    # number of results.
+
+    provider_limit = min(
+        max(
+            limit,
+            6,
+        ),
+        10,
+    )
 
 
     # ========================================================
-    # iTUNES
+    # RUN PROVIDERS IN PARALLEL
     # ========================================================
 
-    try:
+    jiosaavn_task = asyncio.create_task(
 
-        data = await itunes_service.search_songs(
+        jiosaavn_service.search_songs(
+
             query=query,
-            limit=limit,
+
+            limit=provider_limit,
+
         )
 
-        for item in data.get("results", []):
+    )
 
-            results.append(
-                {
-                    "id": str(
-                        item.get("trackId")
-                    ),
 
-                    "title": item.get(
-                        "trackName"
-                    ),
+    itunes_task = asyncio.create_task(
 
-                    "artist": item.get(
-                        "artistName"
-                    ),
+        itunes_service.search_songs(
 
-                    "album": item.get(
-                        "collectionName"
-                    ),
+            query=query,
 
-                    "image": item.get(
-                        "artworkUrl100"
-                    ),
+            limit=provider_limit,
 
-                    "provider": "itunes",
+        )
 
-                    "duration": item.get(
-                        "trackTimeMillis"
-                    ),
+    )
 
-                    "preview_url": item.get(
-                        "previewUrl"
-                    ),
 
-                    "external_url": item.get(
-                        "trackViewUrl"
-                    ),
-                }
+    (
+        jiosaavn_response,
+        itunes_response,
+    ) = await asyncio.gather(
+
+        jiosaavn_task,
+
+        itunes_task,
+
+        return_exceptions=True,
+
+    )
+
+
+    # ========================================================
+    # JIOSAAVN RESULTS
+    # ========================================================
+
+    jiosaavn_results = []
+
+
+    if isinstance(
+        jiosaavn_response,
+        list,
+    ):
+
+        jiosaavn_results = [
+
+            song
+
+            for song
+            in jiosaavn_response
+
+            if isinstance(
+                song,
+                dict,
             )
 
-    except Exception as exc:
+            and song.get(
+                "title"
+            )
+
+            and song.get(
+                "artist"
+            )
+
+        ]
+
+
+    else:
 
         print(
-            f"iTunes search failed: {exc}"
+            "[JioSaavn search failed]",
+            jiosaavn_response,
         )
 
 
     # ========================================================
-    # DEEZER
+    # ITUNES RESULTS
     # ========================================================
 
-    try:
+    itunes_results = []
 
-        data = await deezer_service.search_tracks(
-            query=query,
-            limit=limit,
+
+    if isinstance(
+        itunes_response,
+        dict,
+    ):
+
+        raw_results = (
+            itunes_response.get(
+                "results",
+                [],
+            )
         )
 
-        for item in data.get("data", []):
 
-            artist_data = item.get(
-                "artist",
-                {}
-            )
+        if isinstance(
+            raw_results,
+            list,
+        ):
 
-            album_data = item.get(
-                "album",
-                {}
-            )
+            for item in raw_results:
 
-            results.append(
-                {
-                    "id": str(
-                        item.get("id")
-                    ),
+                normalized = (
+                    normalize_itunes_song(
+                        item
+                    )
+                )
 
-                    "title": item.get(
-                        "title"
-                    ),
 
-                    "artist": artist_data.get(
-                        "name"
-                    ),
+                if normalized:
 
-                    "album": album_data.get(
-                        "title"
-                    ),
+                    itunes_results.append(
+                        normalized
+                    )
 
-                    "image": (
-                        album_data.get(
-                            "cover_medium"
-                        )
-                        or album_data.get(
-                            "cover"
-                        )
-                    ),
 
-                    "provider": "deezer",
-
-                    "duration": (
-                        item.get("duration")
-                    ),
-
-                    "preview_url": item.get(
-                        "preview"
-                    ),
-
-                    "external_url": item.get(
-                        "link"
-                    ),
-                }
-            )
-
-    except Exception as exc:
+    else:
 
         print(
-            f"Deezer search failed: {exc}"
+            "[iTunes search failed]",
+            itunes_response,
         )
 
 
     # ========================================================
-    # REMOVE INVALID RESULTS
+    # MERGE
     # ========================================================
 
-    results = [
-        song
-        for song in results
-        if song.get("title")
-        and song.get("artist")
-    ]
+    results = merge_music_results(
 
+        jiosaavn_results=
+            jiosaavn_results,
+
+        itunes_results=
+            itunes_results,
+
+        limit=limit,
+
+    )
+
+
+    # ========================================================
+    # LOGGING
+    # ========================================================
+
+    print(
+        "[Music search]",
+        {
+
+            "query":
+                query,
+
+            "jiosaavn":
+                len(
+                    jiosaavn_results
+                ),
+
+            "itunes":
+                len(
+                    itunes_results
+                ),
+
+            "merged":
+                len(
+                    results
+                ),
+
+        },
+    )
+
+
+    # ========================================================
+    # RESPONSE
+    # ========================================================
 
     return {
-        "query": query,
-        "count": len(results),
-        "results": results,
+
+        "query":
+            query,
+
+        "count":
+            len(
+                results
+            ),
+
+        "results":
+            results,
+
     }
 
 
@@ -214,22 +574,41 @@ async def search_youtube_song(
 
     try:
 
-        results = await youtube_service.search_song(
-            title=title,
-            artist=artist,
+        results = (
+            await youtube_service.search_song(
+                title=title,
+                artist=artist,
+            )
         )
 
+
         return {
-            "query": f"{title} {artist}",
-            "count": len(results),
-            "results": results,
+
+            "query":
+                f"{title} {artist}",
+
+            "count":
+                len(
+                    results
+                ),
+
+            "results":
+                results,
+
         }
+
 
     except Exception as exc:
 
         raise HTTPException(
+
             status_code=502,
-            detail=f"YouTube search failed: {str(exc)}",
+
+            detail=(
+                "YouTube search failed: "
+                f"{str(exc)}"
+            ),
+
         )
 
 
@@ -241,6 +620,11 @@ async def search_youtube_song(
 async def youtube_health():
 
     return {
-        "status": "ok",
-        "service": "youtube",
+
+        "status":
+            "ok",
+
+        "service":
+            "youtube",
+
     }

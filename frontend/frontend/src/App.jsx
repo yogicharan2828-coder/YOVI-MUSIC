@@ -18,6 +18,8 @@ import SpotlightCard from "./components/home/SpotlightCard";
 
 import MusicPlayer from "./components/player/Musicplayer";
 import YouTubePlayer from "./components/player/Youtubeplayer";
+import AudioPlayer
+  from "./components/player/AudioPlayer";
 
 import Search from "./pages/Search";
 import Collections from "./pages/Collections";
@@ -566,7 +568,7 @@ function AppContent() {
         }
 
       />
-
+<AudioPlayer />
 
       {/* ==================================================
           AUTH TOAST
