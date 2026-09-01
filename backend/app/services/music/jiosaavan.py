@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 import httpx
 
@@ -9,21 +8,12 @@ from app.core.api_cache import api_cache
 class JioSaavnService:
 
     # ========================================================
-    # BASE URL
+    # PRODUCTION JIOSAAVN API
     # ========================================================
 
-    # Local development:
-    #   http://127.0.0.1:8001
-    #
-    # Production:
-    #   Set JIOSAAVN_BASE_URL in Render environment variables.
-    #
-
-    BASE_URL = os.getenv(
-        "JIOSAAVN_BASE_URL",
-        "http://127.0.0.1:8001",
-    ).rstrip("/")
-
+    BASE_URL = (
+        "https://yovi-music-jio-saavn.onrender.com"
+    )
 
     SEARCH_TTL = 60 * 60
 
@@ -42,17 +32,28 @@ class JioSaavnService:
         limit: int = 25,
     ) -> list[dict]:
 
-        query = (query or "").strip()
+        query = (
+            query or ""
+        ).strip()
+
 
         if not query:
+
             return []
 
 
         limit = min(
-            max(int(limit), 1),
+            max(
+                int(limit),
+                1,
+            ),
             50,
         )
 
+
+        # ====================================================
+        # CACHE KEY
+        # ====================================================
 
         cache_key = (
             f"jiosaavn:search:"
@@ -68,17 +69,20 @@ class JioSaavnService:
             cache_key
         )
 
+
         if cached is not None:
 
             print(
-                "[API CACHE HIT] JioSaavn search"
+                "[API CACHE HIT] "
+                "JioSaavn search"
             )
 
             return cached
 
 
         print(
-            "[API CACHE MISS] JioSaavn search"
+            "[API CACHE MISS] "
+            "JioSaavn search"
         )
 
 
@@ -100,18 +104,38 @@ class JioSaavnService:
                 ) as client:
 
                     response = await client.get(
+
                         f"{self.BASE_URL}/song/",
+
                         params={
-                            "query": query,
-                            "lyrics": "false",
-                            "songdata": "true",
+
+                            "query":
+                                query,
+
+                            "lyrics":
+                                "false",
+
+                            "songdata":
+                                "true",
+
                         },
+
                     )
 
 
+                # --------------------------------------------
+                # HTTP ERROR CHECK
+                # --------------------------------------------
+
                 response.raise_for_status()
 
+
+                # --------------------------------------------
+                # JSON
+                # --------------------------------------------
+
                 data = response.json()
+
 
                 break
 
@@ -122,25 +146,39 @@ class JioSaavnService:
             ) as exc:
 
                 print(
+
                     f"[JioSaavn search attempt "
-                    f"{attempt + 1}/{self.MAX_RETRIES + 1}] "
+                    f"{attempt + 1}/"
+                    f"{self.MAX_RETRIES + 1}] "
                     f"failed: {exc}"
+
                 )
 
+
+                # --------------------------------------------
+                # RETRY
+                # --------------------------------------------
 
                 if attempt < self.MAX_RETRIES:
 
                     await asyncio.sleep(
-                        0.5 * (attempt + 1)
+
+                        0.5
+                        * (
+                            attempt + 1
+                        )
+
                     )
 
                     continue
 
 
                 print(
+
                     "[JioSaavn search] "
                     "All attempts failed. "
                     "Returning empty results."
+
                 )
 
                 return []
@@ -149,8 +187,10 @@ class JioSaavnService:
             except Exception as exc:
 
                 print(
-                    f"[JioSaavn search] "
+
+                    "[JioSaavn search] "
                     f"Unexpected error: {exc}"
+
                 )
 
                 return []
@@ -166,8 +206,10 @@ class JioSaavnService:
         ):
 
             print(
+
                 "[JioSaavn search] "
                 "Invalid upstream response."
+
             )
 
             return []
@@ -186,13 +228,26 @@ class JioSaavnService:
                 item,
                 dict,
             ):
+
                 continue
 
 
+            # ------------------------------------------------
+            # TITLE
+            # ------------------------------------------------
+
             title = (
-                item.get("song")
-                or item.get("title")
+
+                item.get(
+                    "song"
+                )
+
+                or item.get(
+                    "title"
+                )
+
                 or ""
+
             )
 
 
@@ -200,17 +255,35 @@ class JioSaavnService:
                 title,
                 str,
             ):
-                title = str(title)
+
+                title = str(
+                    title
+                )
 
 
             title = title.strip()
 
 
+            # ------------------------------------------------
+            # ARTIST
+            # ------------------------------------------------
+
             artist = (
-                item.get("primary_artists")
-                or item.get("music")
-                or item.get("singers")
+
+                item.get(
+                    "primary_artists"
+                )
+
+                or item.get(
+                    "music"
+                )
+
+                or item.get(
+                    "singers"
+                )
+
                 or ""
+
             )
 
 
@@ -218,21 +291,30 @@ class JioSaavnService:
                 artist,
                 str,
             ):
-                artist = str(artist)
+
+                artist = str(
+                    artist
+                )
 
 
             artist = artist.strip()
 
 
+            # ------------------------------------------------
+            # VALID RESULT
+            # ------------------------------------------------
+
             if not title or not artist:
+
                 continue
 
 
-            # =================================================
+            # ------------------------------------------------
             # DURATION
-            # =================================================
+            # ------------------------------------------------
 
             duration = None
+
 
             try:
 
@@ -240,11 +322,15 @@ class JioSaavnService:
                     "duration"
                 )
 
+
                 if raw_duration is not None:
 
                     duration = int(
-                        float(raw_duration)
+                        float(
+                            raw_duration
+                        )
                     )
+
 
             except (
                 TypeError,
@@ -254,25 +340,35 @@ class JioSaavnService:
                 duration = None
 
 
-            # =================================================
-            # ID
-            # =================================================
+            # ------------------------------------------------
+            # SONG ID
+            # ------------------------------------------------
 
             song_id = (
-                item.get("id")
-                or item.get("songid")
+
+                item.get(
+                    "id"
+                )
+
+                or item.get(
+                    "songid"
+                )
+
                 or ""
+
             )
 
 
-            # =================================================
-            # RESULT
-            # =================================================
+            # ------------------------------------------------
+            # NORMALIZED YOVI RESULT
+            # ------------------------------------------------
 
             results.append({
 
                 "id":
-                    str(song_id),
+                    str(
+                        song_id
+                    ),
 
                 "title":
                     title,
@@ -281,10 +377,12 @@ class JioSaavnService:
                     artist,
 
                 "album":
-                    item.get(
-                        "album"
-                    )
-                    or "",
+                    (
+                        item.get(
+                            "album"
+                        )
+                        or ""
+                    ),
 
                 "image":
                     item.get(
@@ -302,6 +400,7 @@ class JioSaavnService:
                         item.get(
                             "media_preview_url"
                         )
+
                         or item.get(
                             "vlink"
                         )
@@ -312,6 +411,7 @@ class JioSaavnService:
                         item.get(
                             "perma_url"
                         )
+
                         or item.get(
                             "url"
                         )
@@ -339,23 +439,33 @@ class JioSaavnService:
 
 
         # ====================================================
-        # CACHE SUCCESSFUL RESPONSE
+        # CACHE SUCCESSFUL RESULTS
         # ====================================================
 
         api_cache.set(
+
             cache_key,
+
             results,
+
             self.SEARCH_TTL,
+
         )
 
 
         print(
-            f"[JioSaavn search] "
+
+            "[JioSaavn search] "
             f"Returning {len(results)} results."
+
         )
 
 
         return results
 
+
+# ============================================================
+# SERVICE INSTANCE
+# ============================================================
 
 jiosaavn_service = JioSaavnService()
