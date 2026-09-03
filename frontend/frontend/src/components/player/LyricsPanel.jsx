@@ -387,14 +387,13 @@ function LyricsPanel({ onClose }) {
 
 
           <button
-            className="lyrics-close"
-            onClick={onClose}
-            aria-label="Close lyrics"
-          >
-
-            <X size={20} />
-
-          </button>
+  className="lyrics-close"
+  onClick={onClose}
+  aria-label="Back to player"
+>
+  <span className="lyrics-close-back">←</span>
+  <X size={20} />
+</button>
 
         </div>
 

@@ -10463,3 +10463,201 @@ body,
   }
 
 }
+
+/* =========================================================
+   YOVI FINAL MOBILE PLAYER FIXES
+   ---------------------------------------------------------
+   - Makes Lyrics close/back control obvious on phones
+   - Uses dynamic viewport height for Lyrics
+   - Gives YouTube video a taller mobile presentation
+   - Desktop YouTube layout remains untouched
+========================================================= */
+
+
+/* =========================================================
+   MOBILE LYRICS
+========================================================= */
+
+@media (max-width: 800px) {
+
+  .lyrics-panel {
+
+    height: 100dvh;
+
+    min-height: 100dvh;
+
+  }
+
+
+  .lyrics-header {
+
+    position: relative;
+
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: space-between;
+
+    gap: 16px;
+
+    padding:
+      max(20px, env(safe-area-inset-top))
+      20px
+      20px;
+
+  }
+
+
+  .lyrics-close {
+
+    flex-shrink: 0;
+
+    width: 44px;
+    height: 44px;
+
+    min-width: 44px;
+    min-height: 44px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 3px;
+
+    border-radius: 50%;
+
+    cursor: pointer;
+
+    color: var(--text);
+
+    background:
+      rgba(255, 255, 255, 0.06);
+
+    border:
+      1px solid
+      rgba(255, 255, 255, 0.12);
+
+  }
+
+
+  .lyrics-close-back {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    font-size: 19px;
+
+    line-height: 1;
+
+  }
+
+
+  .lyrics-close svg {
+
+    width: 17px;
+    height: 17px;
+
+  }
+
+
+  .lyrics-close:active {
+
+    transform: scale(0.94);
+
+    background:
+      rgba(255, 255, 255, 0.12);
+
+  }
+
+
+  .lyrics-content {
+
+    padding:
+      25px 20px
+      calc(100px + env(safe-area-inset-bottom));
+
+  }
+
+}
+
+
+/* =========================================================
+   MOBILE YOUTUBE VIDEO
+========================================================= */
+
+/* =========================================================
+   YOVI MOBILE YOUTUBE PLAYER — FINAL LAYOUT
+   ---------------------------------------------------------
+   Keeps the taller video but leaves enough room for:
+   - video controls
+   - timeline
+   - playback controls
+   - More / Queue / Lyrics
+========================================================= */
+
+@media (max-width: 600px) {
+
+  .youtube-player-surface {
+
+    top: 92px;
+
+    width:
+      calc(100vw - 32px);
+
+    /*
+     * Keep the video tall, but don't let it
+     * consume the area used by the music controls.
+     */
+    height:
+      min(
+        250px,
+        calc((100vw - 32px) * 0.90)
+      );
+
+    max-height: 250px;
+
+    border-radius: 8px;
+
+  }
+
+
+  .youtube-player-surface iframe {
+
+    transform:
+      translate(-50%, -50%)
+      scale(1.06);
+
+  }
+
+}
+
+
+/* =========================================================
+   VERY SMALL PHONES
+========================================================= */
+
+@media (max-width: 380px) {
+
+  .youtube-player-surface {
+
+    top: 88px;
+
+    width:
+      calc(100vw - 24px);
+
+    height:
+      min(
+        225px,
+        calc((100vw - 24px) * 0.88)
+      );
+
+    max-height: 225px;
+
+  }
+
+}
