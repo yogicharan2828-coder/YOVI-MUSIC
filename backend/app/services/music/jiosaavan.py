@@ -15,11 +15,14 @@ class JioSaavnService:
         "https://yovi-music-jio-saavn.onrender.com"
     )
 
+    # Successful searches are cached for 1 hour.
     SEARCH_TTL = 60 * 60
 
-    REQUEST_TIMEOUT = 15.0
+    # Keep search responsive when the Render service is asleep.
+    REQUEST_TIMEOUT = 5.0
 
-    MAX_RETRIES = 2
+    # One retry is enough for a temporary 502 / cold-start issue.
+    MAX_RETRIES = 1
 
 
     # ========================================================
@@ -38,7 +41,6 @@ class JioSaavnService:
 
 
         if not query:
-
             return []
 
 
@@ -87,7 +89,7 @@ class JioSaavnService:
 
 
         # ====================================================
-        # REQUEST WITH RETRIES
+        # REQUEST WITH LIMITED RETRY
         # ====================================================
 
         data = None
@@ -137,48 +139,80 @@ class JioSaavnService:
                 data = response.json()
 
 
+                print(
+                    "[JioSaavn search] "
+                    f"Request succeeded on attempt "
+                    f"{attempt + 1}."
+                )
+
+
                 break
 
 
             except (
-                httpx.HTTPError,
-                ValueError,
+                httpx.TimeoutException,
+                httpx.ConnectError,
+                httpx.NetworkError,
+                httpx.RemoteProtocolError,
+                httpx.HTTPStatusError,
             ) as exc:
 
+                status_code = None
+
+                if isinstance(
+                    exc,
+                    httpx.HTTPStatusError,
+                ):
+
+                    status_code = (
+                        exc.response.status_code
+                    )
+
+
                 print(
-
-                    f"[JioSaavn search attempt "
-                    f"{attempt + 1}/"
-                    f"{self.MAX_RETRIES + 1}] "
-                    f"failed: {exc}"
-
+                    "[JioSaavn search] "
+                    f"Attempt {attempt + 1}/"
+                    f"{self.MAX_RETRIES + 1} failed"
+                    f" | status={status_code}"
+                    f" | error={exc}"
                 )
 
 
                 # --------------------------------------------
-                # RETRY
+                # RETRY ONCE
                 # --------------------------------------------
 
                 if attempt < self.MAX_RETRIES:
 
                     await asyncio.sleep(
-
                         0.5
-                        * (
-                            attempt + 1
-                        )
-
                     )
 
                     continue
 
 
+                # --------------------------------------------
+                # SOFT FAILURE
+                #
+                # JioSaavn is an optional provider.
+                # Never allow it to break YOVI search.
+                # --------------------------------------------
+
                 print(
-
                     "[JioSaavn search] "
-                    "All attempts failed. "
-                    "Returning empty results."
+                    "Provider unavailable. "
+                    "Returning empty results so "
+                    "other providers can continue."
+                )
 
+                return []
+
+
+            except ValueError as exc:
+
+                print(
+                    "[JioSaavn search] "
+                    f"Invalid JSON response: {exc}"
                 )
 
                 return []
@@ -187,10 +221,8 @@ class JioSaavnService:
             except Exception as exc:
 
                 print(
-
                     "[JioSaavn search] "
                     f"Unexpected error: {exc}"
-
                 )
 
                 return []
@@ -206,10 +238,8 @@ class JioSaavnService:
         ):
 
             print(
-
                 "[JioSaavn search] "
                 "Invalid upstream response."
-
             )
 
             return []
@@ -228,7 +258,6 @@ class JioSaavnService:
                 item,
                 dict,
             ):
-
                 continue
 
 
@@ -305,7 +334,6 @@ class JioSaavnService:
             # ------------------------------------------------
 
             if not title or not artist:
-
                 continue
 
 
@@ -454,10 +482,8 @@ class JioSaavnService:
 
 
         print(
-
             "[JioSaavn search] "
             f"Returning {len(results)} results."
-
         )
 
 
