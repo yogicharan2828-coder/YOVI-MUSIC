@@ -7,6 +7,8 @@ YOVI Music is a modern full-stack music streaming and social listening platform 
 YOVI is built with a scalable React + FastAPI architecture and integrates multiple music services while using caching, normalized provider responses, and asynchronous API requests to provide fast and reliable music discovery.
 
 🚀 Live Demo: https://yovi-music.netlify.app/
+
+
 After staring the webpage pls wait for a minute as render takes 60 -90 seconds to start free tier services
 
 📌 Features
@@ -147,12 +149,19 @@ User authentication
 Persistent user data
 
 AI & Recommendation
+
 Personalized recommendation system
+
 Listening-based recommendation logic
+
 User preference processing
+
 Caching & Performance
+
 Backend API caching
+
 Provider response caching
+
 Asynchronous API requests
 Result normalization
 Duplicate result detection
@@ -235,12 +244,19 @@ The responsive player adapts to desktop and mobile layouts.
 YOVI was designed to minimize unnecessary network overhead.
 
 Implemented optimizations
+
 Asynchronous music-provider requests
+
 API response caching
+
 Normalized provider responses
+
 Duplicate result merging
+
 Limited provider retries
+
 Graceful provider failure handling
+
 Direct JioSaavn API integration
 
 The JioSaavn integration was later moved directly into the main YOVI backend instead of using a separate Render service. This removed an unnecessary backend-to-backend network hop and improved search responsiveness.
@@ -252,12 +268,19 @@ YOVI includes a dedicated responsive experience rather than simply scaling the d
 Mobile-specific improvements include:
 
 Responsive Now Playing panel
+
 Touch-friendly playback controls
+
 Mobile lyrics navigation
+
 Taller mobile video experience
+
 Responsive queue controls
+
 Mobile search experience
+
 Adaptive layouts for smaller screens
+
 🚀 Future Enhancements
 
 YOVI is designed to continue evolving into a complete real-time music platform.
@@ -276,26 +299,47 @@ Bluetooth/media controls
 Add real-time messaging directly inside Jam sessions so participants can communicate while listening together.
 
 🎧 Advanced Social Listening
+
 Live reactions
+
 Currently-listening indicators
+
 Improved collaborative queue
+
 Richer host/guest controls
+
 Jam activity feed
+
 🤖 Advanced Recommendations
+
 Improved recommendation models
+
 More listening signals
+
 Better personalization
+
 Context-aware recommendations
+
 Smarter discovery
+
 🔔 Social Notifications
+
 Jam invitations
+
 Friend activity
+
 Playlist sharing
+
 Listening activity
+
 Social notifications
+
 🌟 Key Highlights
+
 AI-First Music Streaming Platform
+
 React + FastAPI Full-Stack Architecture
+
 Multi-Provider Music Search
 JioSaavn Integration
 iTunes Integration
@@ -316,6 +360,7 @@ RESTful Backend APIs
 Cloud Deployment
 Netlify Frontend
 Render Backend
+
 📌 Architecture Highlights
 
 YOVI was designed around a provider-independent music architecture.
