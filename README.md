@@ -25,6 +25,8 @@ Album and song metadata
 Artist and album information
 Search history
 Responsive search experience
+
+
 ▶️ Music Playback
 
 Full Now Playing experience
